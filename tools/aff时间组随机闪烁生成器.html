@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>aff时间组随机闪烁生成器</title>
+    <style>
+        /* === 全局重置 & 基础样式 === */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, "Microsoft YaHei", sans-serif;
+            background: #121217;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            margin: 0;
+            color: #e2e2e8;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 860px;
+            width: 100%;
+            background: #16161c;
+            border-radius: 8px;
+            border: 1px solid #26262e;
+            padding: 32px 36px 40px;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 20px 16px 26px;
+                border-radius: 6px;
+            }
+        }
+
+        /* === 标题区 === */
+        .header {
+            margin-bottom: 22px;
+            border-bottom: 1px solid #26262e;
+            padding-bottom: 16px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #e8eef6;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 .badge {
+            font-size: 12px;
+            font-weight: 600;
+            background: #1e1e26;
+            color: #8fb8dd;
+            padding: 2px 10px;
+            border-radius: 4px;
+            border: 1px solid #3a3a46;
+            letter-spacing: 0.3px;
+        }
+
+        .header .subtitle {
+            font-size: 13px;
+            color: #767f8e;
+            margin-top: 6px;
+            font-weight: 400;
+            letter-spacing: 0.2px;
+        }
+
+        .header .subtitle .highlight {
+            color: #8fb8dd;
+            font-weight: 500;
+        }
+
+        .header .warning {
+            font-size: 13px;
+            color: #e8a33d;
+            font-weight: 600;
+            margin-top: 10px;
+            background: rgba(232, 163, 61, 0.10);
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            letter-spacing: 0.3px;
+            border: 1px solid rgba(232, 163, 61, 0.40);
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 19px;
+            }
+            .header .subtitle {
+                font-size: 12px;
+            }
+            .header .warning {
+                font-size: 12px;
+                padding: 3px 10px;
+            }
+        }
+
+        /* === 表单区域 === */
+        .form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 16px 20px;
+            margin-bottom: 24px;
+            background: #181820;
+            padding: 18px 20px 20px;
+            border-radius: 6px;
+            border: 1px solid #26262e;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 120px;
+            min-width: 90px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #9aa3b2;
+            margin-bottom: 4px;
+            letter-spacing: 0.2px;
+        }
+
+        .form-group .hint {
+            font-size: 12px;
+            color: #767f8e;
+            margin-top: 3px;
+            font-weight: 400;
+        }
+
+        .form-group input,
+        .form-group select {
+            font-size: 14px;
+            padding: 7px 10px;
+            border: 1px solid #3a3a46;
+            border-radius: 4px;
+            background: #25252e;
+            color: #e2e2e8;
+            font-weight: 500;
+            transition: border-color 0.15s;
+            outline: none;
+            width: 100%;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #5a8fd8;
+        }
+
+        .form-group input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .form-group input[type="number"]::-webkit-outer-spin-button,
+        .form-group input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* 间隔组 */
+        .gap-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px 20px;
+            flex: 2 1 280px;
+            align-items: flex-end;
+            background: #1e1e26;
+            padding: 12px 16px 14px;
+            border-radius: 4px;
+            border: 1px dashed #3a3a46;
+            position: relative;
+        }
+
+        .gap-group .gap-hint {
+            width: 100%;
+            font-size: 12px;
+            color: #8fb8dd;
+            font-weight: 500;
+            margin-bottom: 2px;
+            letter-spacing: 0.2px;
+        }
+
+        .gap-group .form-group {
+            flex: 1 1 100px;
+            min-width: 70px;
+            background: transparent;
+        }
+
+        .gap-group .form-group label {
+            font-size: 12px;
+        }
+
+        /* 按钮组 */
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            flex: 0 0 auto;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .btn {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 8px 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.12s, border-color 0.12s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: inherit;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: #2b4a6e;
+            border-color: #4d7fb8;
+            color: #d6e8ff;
+        }
+        .btn-primary:hover {
+            background: #35597f;
+        }
+        .btn-primary:active {
+            background: #243f5e;
+        }
+
+        .btn-secondary {
+            background: #25252e;
+            border-color: #3a3a46;
+            color: #e2e2e8;
+        }
+        .btn-secondary:hover {
+            background: #33333e;
+        }
+        .btn-secondary:active {
+            background: #2a2a34;
+        }
+
+        .btn-success {
+            background: #1e3f2a;
+            border-color: #2d6a42;
+            color: #9fe8a0;
+        }
+        .btn-success:hover {
+            background: #265233;
+        }
+        .btn-success:active {
+            background: #1a3625;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 640px) {
+            .form {
+                padding: 14px 14px 16px;
+                gap: 12px;
+            }
+            .form-group {
+                flex: 1 1 100%;
+                min-width: 0;
+            }
+            .gap-group {
+                flex: 1 1 100%;
+                padding: 12px 12px 14px;
+            }
+            .gap-group .form-group {
+                flex: 1 1 45%;
+                min-width: 60px;
+            }
+            .form-actions {
+                flex: 1 1 100%;
+                justify-content: stretch;
+            }
+            .form-actions .btn {
+                flex: 1;
+                justify-content: center;
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+        }
+
+        /* === 统计信息 === */
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+        }
+
+        .stats .count {
+            font-size: 13px;
+            color: #9aa3b2;
+            background: #1e1e26;
+            padding: 4px 14px;
+            border-radius: 4px;
+            border: 1px solid #26262e;
+            font-weight: 500;
+        }
+
+        .stats .count strong {
+            font-weight: 700;
+            color: #e8eef6;
+        }
+
+        .stats .hint {
+            font-size: 12px;
+            color: #767f8e;
+        }
+
+        /* === 输出区域 === */
+        .output-wrapper {
+            border-radius: 4px;
+            background: #0f0f14;
+            border: 1px solid #3a3a46;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .output-wrapper .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: #181820;
+            border-bottom: 1px solid #26262e;
+        }
+
+        .output-wrapper .code-header .lang {
+            font-size: 11px;
+            font-weight: 600;
+            color: #8fb8dd;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .output-wrapper .code-header .copy-btn-sm {
+            background: transparent;
+            border: 1px solid #3a3a46;
+            color: #9aa3b2;
+            font-size: 12px;
+            padding: 3px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+            font-family: inherit;
+            font-weight: 500;
+        }
+        .output-wrapper .code-header .copy-btn-sm:hover {
+            background: #25252e;
+            border-color: #5a8fd8;
+            color: #e2e2e8;
+        }
+
+        .output {
+            padding: 14px 16px 16px;
+            overflow-x: auto;
+            min-height: 100px;
+            max-height: 460px;
+            overflow-y: auto;
+        }
+
+        .output pre {
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #c8d4e2;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0;
+            padding: 0;
+        }
+
+        .output pre .line-number {
+            display: inline-block;
+            width: 28px;
+            color: #4a525e;
+            user-select: none;
+            text-align: right;
+            margin-right: 14px;
+            font-size: 12px;
+        }
+
+        .output pre .stmt {
+            color: #c8d4e2;
+        }
+        .output pre .stmt .kw {
+            color: #6fb6ff;
+            font-weight: 500;
+        }
+        .output pre .stmt .num {
+            color: #ffcc55;
+        }
+        .output pre .stmt .str {
+            color: #9fe8a0;
+        }
+        .output pre .stmt .bool-0 {
+            color: #8fb8dd;
+        }
+        .output pre .stmt .bool-1 {
+            color: #ff6b6b;
+        }
+        .output pre .stmt .punct {
+            color: #767f8e;
+        }
+
+        .output .empty-hint {
+            color: #767f8e;
+            font-size: 14px;
+            font-family: system-ui, "Microsoft YaHei", sans-serif;
+            text-align: center;
+            padding: 36px 10px;
+            user-select: none;
+        }
+        .output .empty-hint .icon {
+            font-size: 26px;
+            display: block;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        /* === Toast 提示 === */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #181820;
+            border: 1px solid #3a3a46;
+            color: #e2e2e8;
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: none;
+            z-index: 999;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0px);
+        }
+
+        /* === 滚动条美化 === */
+        .output::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .output::-webkit-scrollbar-track {
+            background: #0f0f14;
+        }
+        .output::-webkit-scrollbar-thumb {
+            background: #3a3a46;
+            border-radius: 4px;
+        }
+        .output::-webkit-scrollbar-thumb:hover {
+            background: #5a8fd8;
+        }
+
+        @media (max-width: 480px) {
+            .output pre {
+                font-size: 12px;
+                line-height: 1.6;
+            }
+            .output pre .line-number {
+                width: 22px;
+                margin-right: 10px;
+                font-size: 11px;
+            }
+            .output {
+                padding: 10px 12px 12px;
+                max-height: 340px;
+            }
+            .stats .count {
+                font-size: 12px;
+                padding: 3px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ====== 主容器 ====== -->
+    <div class="container">
+
+        <!-- 标题 -->
+        <div class="header">
+            <h1>
+                ⚡ aff时间组随机闪烁生成器
+                <span class="badge">v1.2</span>
+            </h1>
+            <div class="subtitle">
+                基于 <span class="highlight">hidegroup</span> 语句实现，Presented By DeepSeek.
+            </div>
+            <!-- 警告 -->
+            <div class="warning">
+                ⚠️ 光敏性癫痫注意：本工具生成内容包含画面闪烁，请谨慎使用。
+            </div>
+        </div>
+
+        <!-- 表单 -->
+        <div class="form">
+            <div class="form-group">
+                <label for="startTime">起始时间 (ms)</label>
+                <input type="number" id="startTime" value="0" step="1" min="0">
+            </div>
+            <div class="form-group">
+                <label for="endTime">结束时间 (ms)</label>
+                <input type="number" id="endTime" value="100" step="1" min="1">
+            </div>
+            <div class="form-group">
+                <label for="finalState">最终状态</label>
+                <select id="finalState">
+                    <option value="0">不隐藏 (0)</option>
+                    <option value="1">隐藏 (1)</option>
+                </select>
+            </div>
+
+            <!-- 间隔组 -->
+            <div class="gap-group">
+                <div class="gap-hint">📐 随机间隔范围 (建议 20 ~ 70 ms)</div>
+                <div class="form-group">
+                    <label for="minGap">最小间隔</label>
+                    <input type="number" id="minGap" value="20" step="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="maxGap">最大间隔</label>
+                    <input type="number" id="maxGap" value="50" step="1" min="1">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" id="generateBtn">✨ 生成序列</button>
+                <button class="btn btn-secondary" id="copyBtn">📋 复制</button>
+            </div>
+        </div>
+
+        <!-- 统计 -->
+        <div class="stats">
+            <span class="count">📄 语句数：<strong id="stmtCount">0</strong></span>
+            <span class="hint">间隔范围由最小/最大间隔控制</span>
+        </div>
+
+        <!-- 输出 -->
+        <div class="output-wrapper">
+            <div class="code-header">
+                <span class="lang">📜 AFF 语句</span>
+                <button class="copy-btn-sm" id="copyBtnSm">复制全部</button>
+            </div>
+            <div class="output" id="outputArea">
+                <pre id="result"><span class="empty-hint"><span class="icon">⌨️</span>输入参数后点击「生成序列」</span></pre>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- ====== JavaScript ====== -->
+    <script>
+        (function() {
+            'use strict';
+
+            // DOM 引用
+            const startInput = document.getElementById('startTime');
+            const endInput = document.getElementById('endTime');
+            const finalSelect = document.getElementById('finalState');
+            const minGapInput = document.getElementById('minGap');
+            const maxGapInput = document.getElementById('maxGap');
+            const generateBtn = document.getElementById('generateBtn');
+            const copyBtn = document.getElementById('copyBtn');
+            const copyBtnSm = document.getElementById('copyBtnSm');
+            const resultPre = document.getElementById('result');
+            const stmtCount = document.getElementById('stmtCount');
+            const toast = document.getElementById('toast');
+
+            let currentLines = [];
+
+            function randomInt(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+
+            let toastTimer = null;
+
+            function showToast(msg, duration) {
+                duration = duration || 2200;
+                if (toastTimer) {
+                    clearTimeout(toastTimer);
+                    toast.classList.remove('show');
+                }
+                void toast.offsetWidth;
+                toast.textContent = msg;
+                toast.classList.add('show');
+                toastTimer = setTimeout(function() {
+                    toast.classList.remove('show');
+                    toastTimer = null;
+                }, duration);
+            }
+
+            function generateSequence(start, end, finalState, minGap, maxGap) {
+                if (!Number.isInteger(start) || !Number.isInteger(end)) {
+                    throw new Error('起始时间和结束时间必须为整数');
+                }
+                if (start >= end) {
+                    throw new Error('起始时间必须小于结束时间');
+                }
+                if (!Number.isInteger(minGap) || !Number.isInteger(maxGap)) {
+                    throw new Error('间隔必须为整数');
+                }
+                if (minGap < 1) {
+                    throw new Error('最小间隔不能小于 1');
+                }
+                if (maxGap < minGap) {
+                    throw new Error('最大间隔不能小于最小间隔');
+                }
+                const distance = end - start;
+                if (maxGap > distance && distance > 0) {
+                    maxGap = distance;
+                    if (minGap > distance) minGap = distance;
+                }
+
+                let timestamps = [];
+                if (distance < minGap) {
+                    timestamps = [end];
+                } else {
+                    timestamps = [start];
+                    let current = start;
+                    while (true) {
+                        let remain = end - current;
+                        let gap;
+                        if (remain <= minGap) {
+                            timestamps[timestamps.length - 1] = end;
+                            break;
+                        } else {
+                            const maxPossible = Math.min(maxGap, remain);
+                            const minPossible = Math.min(minGap, maxPossible);
+                            gap = randomInt(minPossible, maxPossible);
+                            const next = current + gap;
+                            if (next >= end) {
+                                if (end - current < minGap) {
+                                    timestamps[timestamps.length - 1] = end;
+                                } else {
+                                    timestamps.push(end);
+                                }
+                                break;
+                            } else {
+                                timestamps.push(next);
+                                current = next;
+                            }
+                        }
+                    }
+                }
+
+                if (timestamps.length === 0) timestamps = [end];
+                else if (timestamps[0] !== start) timestamps.unshift(start);
+                if (timestamps[timestamps.length - 1] !== end) timestamps[timestamps.length - 1] = end;
+
+                const unique = [];
+                for (let i = 0; i < timestamps.length; i++) {
+                    if (i === 0 || timestamps[i] !== timestamps[i - 1]) {
+                        unique.push(timestamps[i]);
+                    }
+                }
+                timestamps = unique;
+
+                const n = timestamps.length;
+                const states = new Array(n);
+                states[n - 1] = finalState;
+                for (let i = n - 2; i >= 0; i--) {
+                    states[i] = 1 - states[i + 1];
+                }
+
+                const lines = [];
+                for (let i = 0; i < n; i++) {
+                    lines.push(`scenecontrol(${timestamps[i]},hidegroup,0.00,${states[i]});`);
+                }
+                return { timestamps, states, lines, count: n };
+            }
+
+            function renderResult(result) {
+                if (!result || result.lines.length === 0) {
+                    resultPre.innerHTML = `<span class="empty-hint"><span class="icon">📭</span>暂无语句，请生成</span>`;
+                    stmtCount.textContent = '0';
+                    currentLines = [];
+                    return;
+                }
+
+                const lines = result.lines;
+                currentLines = lines.slice();
+                const n = lines.length;
+                let html = '';
+                for (let i = 0; i < n; i++) {
+                    const line = lines[i];
+                    const finalMatch = line.match(/,(\d)\);$/);
+                    let hl;
+                    if (finalMatch) {
+                        const val = finalMatch[1];
+                        const cls = val === '1' ? 'bool-1' : 'bool-0';
+                        const before = line.slice(0, line.lastIndexOf(',') + 1);
+                        hl = before.replace(/(scenecontrol)/g, '<span class="kw">$1</span>')
+                            .replace(/(hidegroup)/g, '<span class="str">$1</span>')
+                            .replace(/(0\.00)/g, '<span class="num">$1</span>')
+                            .replace(/,/g, '<span class="punct">,</span>')
+                            .replace(/\(/g, '<span class="punct">(</span>')
+                            .replace(/\)/g, '<span class="punct">)</span>') +
+                            `<span class="${cls}">${val}</span><span class="punct">);</span>`;
+                    } else {
+                        hl = line
+                            .replace(/(scenecontrol)/g, '<span class="kw">$1</span>')
+                            .replace(/(hidegroup)/g, '<span class="str">$1</span>')
+                            .replace(/(0\.00)/g, '<span class="num">$1</span>')
+                            .replace(/,/g, '<span class="punct">,</span>')
+                            .replace(/;/g, '<span class="punct">;</span>')
+                            .replace(/\(/g, '<span class="punct">(</span>')
+                            .replace(/\)/g, '<span class="punct">)</span>');
+                    }
+                    html += `<div><span class="line-number">${String(i + 1).padStart(2, ' ')}</span><span class="stmt">${hl}</span></div>`;
+                }
+                resultPre.innerHTML = html;
+                stmtCount.textContent = n;
+            }
+
+            function getPlainText() {
+                return currentLines.join('\n');
+            }
+
+            function handleGenerate() {
+                try {
+                    const start = parseInt(startInput.value, 10);
+                    const end = parseInt(endInput.value, 10);
+                    const finalState = parseInt(finalSelect.value, 10);
+                    let minGap = parseInt(minGapInput.value, 10);
+                    let maxGap = parseInt(maxGapInput.value, 10);
+
+                    if (isNaN(start) || isNaN(end) || isNaN(minGap) || isNaN(maxGap)) {
+                        showToast('⚠️ 请填写有效的整数', 2000);
+                        return;
+                    }
+                    if (minGap < 1) { minGap = 1;
+                        minGapInput.value = 1; }
+                    if (maxGap < minGap) { maxGap = minGap;
+                        maxGapInput.value = minGap; }
+                    const distance = end - start;
+                    if (distance > 0 && maxGap > distance) {
+                        maxGap = distance;
+                        maxGapInput.value = distance;
+                        if (minGap > distance) { minGap = distance;
+                            minGapInput.value = distance; }
+                        showToast(`⚠️ 间隔范围已自动限制为 [${minGap}, ${maxGap}]`, 2000);
+                    }
+
+                    const result = generateSequence(start, end, finalState, minGap, maxGap);
+                    renderResult(result);
+                    document.getElementById('outputArea').scrollTop = 0;
+                    showToast(`✅ 已生成 ${result.count} 条语句`, 1800);
+                } catch (err) {
+                    showToast('❌ ' + err.message, 2500);
+                }
+            }
+
+            function handleCopy() {
+                const text = getPlainText();
+                if (!text) {
+                    showToast('⚠️ 没有可复制的内容', 1800);
+                    return;
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast('📋 已复制到剪贴板！', 1600);
+                    }).catch(() => {
+                        fallbackCopy(text);
+                    });
+                } else {
+                    fallbackCopy(text);
+                }
+            }
+
+            function fallbackCopy(text) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                textarea.style.top = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('📋 已复制到剪贴板！', 1600);
+                } catch (e) {
+                    showToast('❌ 复制失败，请手动复制', 2000);
+                }
+                document.body.removeChild(textarea);
+            }
+
+            function autoGenerateExample() {
+                startInput.value = '0';
+                endInput.value = '100';
+                finalSelect.value = '0';
+                minGapInput.value = '20';
+                maxGapInput.value = '50';
+                handleGenerate();
+            }
+
+            generateBtn.addEventListener('click', handleGenerate);
+            copyBtn.addEventListener('click', handleCopy);
+            copyBtnSm.addEventListener('click', handleCopy);
+
+            document.querySelectorAll('.form-group input, .form-group select').forEach(el => {
+                el.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleGenerate();
+                    }
+                });
+            });
+
+            startInput.addEventListener('blur', function() {
+                let val = parseInt(this.value, 10);
+                if (isNaN(val) || val < 0) this.value = '0';
+            });
+            endInput.addEventListener('blur', function() {
+                let val = parseInt(this.value, 10);
+                if (isNaN(val) || val < 1) this.value = '1';
+                const start = parseInt(startInput.value, 10);
+                if (!isNaN(start) && val <= start) {
+                    this.value = start + 1;
+                    showToast('⚠️ 结束时间必须大于起始时间', 1800);
+                }
+            });
+            minGapInput.addEventListener('blur', function() {
+                let val = parseInt(this.value, 10);
+                if (isNaN(val) || val < 1) this.value = '1';
+            });
+            maxGapInput.addEventListener('blur', function() {
+                let val = parseInt(this.value, 10);
+                if (isNaN(val) || val < 1) this.value = '1';
+                const minVal = parseInt(minGapInput.value, 10);
+                if (!isNaN(minVal) && val < minVal) {
+                    this.value = minVal;
+                    showToast('⚠️ 最大间隔不能小于最小间隔', 1800);
+                }
+            });
+
+            window.addEventListener('DOMContentLoaded', autoGenerateExample);
+            window.__generate = handleGenerate;
+        })();
+    </script>
+</body>
+</html>

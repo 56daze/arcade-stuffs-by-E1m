@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aff小零食去除工具</title>
+<style>
+  :root{
+    --bg:#121217;
+    --panel:#16161c;
+    --panel2:#181820;
+    --panel3:#1e1e26;
+    --panel4:#25252e;
+    --border:#26262e;
+    --border2:#3a3a46;
+    --text:#e2e2e8;
+    --title:#e8eef6;
+    --muted:#767f8e;
+    --muted2:#9aa3b2;
+    --accent:#6fb6ff;
+    --accent-border:#4d7fb8;
+    --accent-deep:#2b4a6e;
+    --accent-hover:#35597f;
+    --warn:#e8a33d;
+    --danger:#ff6b6b;
+    --success:#9fe8a0;
+    --info:#8fb8dd;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:28px 18px 60px;
+    font-family:system-ui,"Microsoft YaHei",sans-serif;
+    font-size:14px;
+    color:var(--text);
+    background:var(--bg);
+  }
+  .app{max-width:1180px;margin:0 auto}
+  h1{
+    font-size:22px;margin:0;letter-spacing:.5px;
+    color:var(--title);
+    font-weight:700;
+  }
+  .sub{color:var(--muted);font-size:13px;margin:8px 0 0;line-height:1.6}
+  .sub b{color:var(--info);font-weight:600}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  button{
+    font-family:inherit;font-size:14px;cursor:pointer;border-radius:4px;
+    padding:8px 16px;border:1px solid var(--border2);background:var(--panel4);
+    color:var(--text);transition:background-color .12s,border-color .12s;
+    white-space:nowrap;
+  }
+  button:hover{border-color:#5a8fd8;background:#33333e}
+  button:active{background:#2a2a34}
+  button.primary{
+    background:var(--accent-deep);
+    border-color:var(--accent-border);
+    color:#d6e8ff;font-weight:600;
+  }
+  button.primary:hover{background:var(--accent-hover);border-color:#5a8fd8}
+
+  .status{
+    margin-top:16px;padding:10px 14px;border-radius:4px;font-size:13px;
+    border:1px solid var(--border);background:var(--panel);transition:.15s;
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+    line-height:1.5;
+  }
+  .status .extra{color:var(--muted);font-size:12.5px}
+  .status.err{border-color:rgba(255,107,107,.40);background:rgba(255,107,107,.08);color:var(--danger)}
+  .status.ok{border-color:rgba(159,232,160,.35);background:rgba(159,232,160,.08);color:var(--success)}
+  .status.good{border-color:rgba(111,182,255,.40);background:rgba(111,182,255,.10);color:var(--accent)}
+
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media (max-width:860px){.panes{grid-template-columns:1fr}}
+
+  .pane{display:flex;flex-direction:column;gap:6px}
+  .pane label{font-size:13px;color:var(--muted2);padding-left:2px}
+  textarea{
+    width:100%;height:360px;resize:vertical;
+    background:#0f0f14;border:1px solid var(--border2);border-radius:4px;
+    color:var(--text);padding:12px 14px;
+    font-family:ui-monospace,Consolas,monospace;
+    font-size:13px;line-height:1.6;outline:none;transition:border-color .15s;
+  }
+  textarea:focus{border-color:#5a8fd8}
+  textarea[readonly]{color:#c8d4e2}
+
+  details{
+    margin-top:14px;border:1px solid var(--border);border-radius:4px;
+    background:var(--panel);padding:10px 14px;font-size:13px;
+  }
+  details[hidden]{display:none}
+  summary{cursor:pointer;color:var(--muted2);outline:none}
+  summary::marker{color:var(--accent)}
+  details pre{
+    margin:10px 0 4px;max-height:220px;overflow:auto;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.6;
+    color:var(--danger);white-space:pre-wrap;word-break:break-all;
+  }
+  .foot{margin-top:22px;font-size:12px;color:#5c6377;text-align:center;line-height:1.9}
+  .foot .tag{
+    display:inline-block;padding:1px 8px;border-radius:4px;margin:0 2px;
+    background:var(--panel3);border:1px solid var(--border2);color:var(--muted2);
+    font-family:ui-monospace,Consolas,monospace;
+  }
+
+  /* 滚动条美化 */
+  textarea::-webkit-scrollbar,
+  details pre::-webkit-scrollbar{width:6px;height:6px}
+  textarea::-webkit-scrollbar-track,
+  details pre::-webkit-scrollbar-track{background:#0f0f14}
+  textarea::-webkit-scrollbar-thumb,
+  details pre::-webkit-scrollbar-thumb{background:#3a3a46;border-radius:4px}
+  textarea::-webkit-scrollbar-thumb:hover,
+  details pre::-webkit-scrollbar-thumb:hover{background:#5a8fd8}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🍬 aff小零食去除工具</h1>
+    <p class="sub">Powered by <b>DeepSeek</b> - 谱师没删的小零食，我们帮你删🧹</p>
+  </header>
+
+  <div class="toolbar">
+    <button id="btnClean" class="primary">🧹 一键清理</button>
+    <button id="btnCopy">📋 复制结果</button>
+    <button id="btnClear">🗑️ 清空</button>
+  </div>
+
+  <div id="status" class="status" aria-live="polite">等待粘贴 aff 文本…</div>
+
+  <div class="panes">
+    <div class="pane">
+      <label for="input">输入（粘贴谱面文本）</label>
+      <textarea id="input" placeholder="arc(1000,1001,0.5,0.5,s,0.5,0.5,0,0.wav,true);&#10;arc(2000,2001,0.5,0.5,s,0.5,0.5,0,0.wav,designant);"></textarea>
+    </div>
+    <div class="pane">
+      <label for="output">输出（已清理）</label>
+      <textarea id="output" readonly placeholder="清理后的结果会显示在这里"></textarea>
+    </div>
+  </div>
+
+  <details id="removedBox" hidden>
+    <summary>查看被移除的语句（<span id="removedCount">0</span> 条）</summary>
+    <pre id="removedList"></pre>
+  </details>
+
+  <p class="foot">
+    仅识别 arc 语句 · 只剔除<span class="tag">类型 = true</span>的≤1ms 不动黑线<br>
+    <span class="tag">false</span> 音弧 &nbsp;·&nbsp; <span class="tag">designant</span> 红色黑线（含天键染色）&nbsp;·&nbsp; 等其他类型 一律保留
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ARC_RE = /arc\s*\([^)]*\)\s*;/gi;
+
+  var $input   = document.getElementById('input');
+  var $output  = document.getElementById('output');
+  var $status  = document.getElementById('status');
+  var $btnClean= document.getElementById('btnClean');
+  var $btnCopy = document.getElementById('btnCopy');
+  var $btnClear= document.getElementById('btnClear');
+  var $rBox    = document.getElementById('removedBox');
+  var $rCount  = document.getElementById('removedCount');
+  var $rList   = document.getElementById('removedList');
+
+  /* ---------- 解析 ---------- */
+
+  function toNum(s) {
+    if (typeof s !== 'string') return NaN;
+    var t = s.trim();
+    if (t === '') return NaN;
+    return Number(t);
+  }
+
+  // 拆出 arc(...) 内部的参数
+  function parseArgs(raw) {
+    var open = raw.indexOf('(');
+    var close = raw.lastIndexOf(')');
+    if (open < 0 || close < 0 || close <= open) return null;
+    return raw.slice(open + 1, close).split(',').map(function (p) { return p.trim(); });
+  }
+
+  // 小零食判定：类型为 true 的 ≤1ms 不动黑线
+  // arc(起始时间, 结束时间, 起始x, 结束x, 缓动类型, 起始y, 结束y, 颜色, sfx, 类型);
+  function isSnack(parts) {
+    if (!parts || parts.length < 10) return false;
+
+    // ① 类型必须为 true（黑线/trace）；false=音弧，designant=红色黑线，均保留
+    var type = String(parts[9]).trim().toLowerCase();
+    if (type !== 'true') return false;
+
+    var t1 = toNum(parts[0]);
+    var t2 = toNum(parts[1]);
+    var x1 = toNum(parts[2]);
+    var x2 = toNum(parts[3]);
+    var y1 = toNum(parts[5]);
+    var y2 = toNum(parts[6]);
+
+    if (![t1, t2, x1, x2, y1, y2].every(Number.isFinite)) return false;
+
+    // ② 时长 ≤ 1ms（含 结束时间 ≤ 起始时间 的退化语句）
+    if (t2 - t1 > 1) return false;
+
+    // ③ 不动：起止 x、y 完全一致
+    if (x1 !== x2 || y1 !== y2) return false;
+
+    return true;
+  }
+
+  // 找出一行里所有 arc 语句及其位置
+  function findArcs(line) {
+    var matches = [];
+    var m;
+    ARC_RE.lastIndex = 0;
+    while ((m = ARC_RE.exec(line)) !== null) {
+      matches.push({ start: m.index, end: m.index + m[0].length, raw: m[0] });
+      if (m.index === ARC_RE.lastIndex) ARC_RE.lastIndex++; // 防零宽死循环
+    }
+    ARC_RE.lastIndex = 0;
+    return matches;
+  }
+
+  /* ---------- 主流程 ---------- */
+
+  function cleanText(text) {
+    var lines = text.split('\n');
+    var kept = [];
+    var removed = [];
+    var arcTotal = 0;
+    var snackCount = 0;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].replace(/\r$/, '');
+      var matches = findArcs(line);
+
+      if (matches.length === 0) {
+        kept.push(line);
+        continue;
+      }
+
+      arcTotal += matches.length;
+
+      var flags = matches.map(function (mm) {
+        return isSnack(parseArgs(mm.raw));
+      });
+
+      var hits = flags.filter(Boolean).length;
+      if (hits === 0) {
+        kept.push(line);
+        continue;
+      }
+
+      snackCount += hits;
+
+      // 重建该行（剔除小零食，保留其他内容）
+      var res = '';
+      var cursor = 0;
+      for (var j = 0; j < matches.length; j++) {
+        if (!flags[j]) continue;
+        res += line.slice(cursor, matches[j].start);
+        cursor = matches[j].end;
+        removed.push(matches[j].raw);
+      }
+      res += line.slice(cursor);
+
+      // 整行都是小零食 → 整行丢弃
+      if (res.trim() !== '') kept.push(res);
+    }
+
+    return {
+      result: kept.join('\n'),
+      arcTotal: arcTotal,
+      snackCount: snackCount,
+      removed: removed
+    };
+  }
+
+  /* ---------- 界面 ---------- */
+
+  function setStatus(type, msg, extra) {
+    $status.className = 'status' + (type ? ' ' + type : '');
+    $status.innerHTML = '';
+    var span = document.createElement('span');
+    span.textContent = msg;
+    $status.appendChild(span);
+    if (extra) {
+      var e = document.createElement('span');
+      e.className = 'extra';
+      e.textContent = extra;
+      $status.appendChild(e);
+    }
+  }
+
+  function renderRemoved(list) {
+    if (list.length === 0) {
+      $rBox.hidden = true;
+      $rList.textContent = '';
+      $rCount.textContent = '0';
+      return;
+    }
+    $rBox.hidden = false;
+    $rCount.textContent = String(list.length);
+    $rList.textContent = list.join('\n');
+    $rBox.open = false;
+  }
+
+  $btnClean.addEventListener('click', function () {
+    var text = $input.value;
+    var r = cleanText(text);
+
+    $output.value = r.result;
+    renderRemoved(r.removed);
+
+    if (r.arcTotal === 0) {
+      setStatus('err', '❌ 未识别到正确的arc语句！');
+    } else if (r.snackCount === 0) {
+      setStatus('ok', '✅ 发现0个小零食，谱面很干净！',
+        '（共识别到 ' + r.arcTotal + ' 条 arc 语句）');
+    } else {
+      setStatus('good', '🧹 移除了 ' + r.snackCount + ' 个小零食',
+        '（共识别到 ' + r.arcTotal + ' 条 arc 语句）');
+    }
+  });
+
+  $btnCopy.addEventListener('click', function () {
+    var out = $output.value;
+    if (!out) {
+      setStatus('err', '⚠️ 没有可复制的内容，请先清理。');
+      return;
+    }
+    var done = function () { setStatus('ok', '📋 已复制到剪贴板！'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(out).then(done).catch(function () {
+        $output.select();
+        document.execCommand('copy');
+        done();
+      });
+    } else {
+      $output.select();
+      document.execCommand('copy');
+      done();
+    }
+  });
+
+  $btnClear.addEventListener('click', function () {
+    $input.value = '';
+    $output.value = '';
+    renderRemoved([]);
+    setStatus('', '等待粘贴 aff 文本…');
+    $input.focus();
+  });
+})();
+</script>
+</body>
+</html>

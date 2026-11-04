@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>aff地面物件投影化工具</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    font-family: system-ui, "Microsoft YaHei", sans-serif;
+    background: #121217; color: #e2e2e8; font-size: 14px;
+  }
+
+  /* ---------- 标题栏 ---------- */
+  .app-header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 9px 14px 7px; background: #141419; border-bottom: 1px solid #22222a;
+  }
+  .app-header h1 {
+    font-size: 16px; margin: 0; font-weight: 700; color: #e8eef6; letter-spacing: .5px;
+  }
+  .app-header .sub { font-size: 11px; color: #7b8595; }
+  .app-header .powered {
+    color: #6b7484; margin-left: auto;
+    letter-spacing: .3px;
+  }
+  .app-header .powered b { color: #8892a4; font-weight: 700; }
+
+  /* ---------- Info 按钮 ---------- */
+  .info-btn {
+    align-self: center;
+    margin-left: 4px;
+    width: 26px; height: 26px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; line-height: 1;
+    border-radius: 50%;
+    background: #1e2534; border: 1px solid #34405a; color: #a8d4ff;
+    cursor: pointer; transition: .15s;
+  }
+  .info-btn:hover {
+    background: #26324a; border-color: #4d7fb8;
+    box-shadow: 0 0 0 3px rgba(77,127,184,.14);
+  }
+  .info-btn:active { transform: scale(.94); }
+
+  /* ---------- 全局参数栏 ---------- */
+  .global-bar {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+    padding: 8px 14px; background: #181820; border-bottom: 1px solid #26262e;
+  }
+  .global-bar label {
+    display: flex; gap: 6px; align-items: center; white-space: nowrap;
+    color: #9aa3b2; font-size: 13px;
+  }
+  input, button, select {
+    font: inherit; background: #25252e; color: #e2e2e8; border: 1px solid #3a3a46;
+    border-radius: 4px; padding: 3px 6px; outline: none;
+  }
+  input:focus, select:focus { border-color: #5a8fd8; }
+  input[type=number] { width: 108px; }
+  button { cursor: pointer; transition: .12s; }
+  button:hover { background: #33333e; }
+
+  /* BPM / 投影高度 校验失败时的高亮 */
+  #bpmWrap.invalid input,
+  #yWrap.invalid input { border-color: #c14a4a; }
+  #bpmWrap.invalid label,
+  #yWrap.invalid label { color: #ff8a8a; }
+
+  .btn-primary {
+    background: #1d3a2a; border-color: #3d7a55; color: #9fe0b4; font-weight: 600;
+  }
+  .btn-primary:hover { background: #265038; border-color: #54a372; color: #c2f2d3; }
+
+  /* ---------- 投影加深 展开栏 ---------- */
+  .opt-bar {
+    background: #16161d;
+    border-bottom: 1px solid #26262e;
+    padding: 0 14px;
+  }
+  .opt-head {
+    display: flex; align-items: center; gap: 9px;
+    width: 100%; padding: 7px 0;
+    background: none; border: none; border-radius: 0;
+    color: #9aa3b2; font-size: 13px; text-align: left;
+  }
+  .opt-head:hover { background: none; color: #cfe3ff; }
+  .opt-head .chev {
+    display: inline-block; font-size: 10px; color: #5a8fd8;
+    transition: transform .18s ease;
+  }
+  .opt-bar.open .opt-head .chev { transform: rotate(90deg); }
+  .opt-head .opt-name { font-weight: 600; letter-spacing: .3px; }
+  .opt-head .spacer { flex: 1; }
+  .opt-badge {
+    font-size: 11.5px; padding: 1px 9px; border-radius: 999px;
+    background: #1a2a20; border: 1px solid #34503f; color: #9fe0b4;
+    white-space: nowrap;
+  }
+  .opt-body { display: none; padding: 2px 0 12px; }
+  .opt-bar.open .opt-body {
+    display: block;
+    animation: optFade .16s ease-out;
+  }
+  @keyframes optFade {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .opt-row { display: flex; gap: 9px; flex-wrap: wrap; }
+  .opt-item {
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 134px; padding: 7px 12px;
+    background: #1e1e27; border: 1px solid #33334a; border-radius: 8px;
+    cursor: pointer; transition: .14s; user-select: none;
+  }
+  .opt-item:hover { background: #252532; border-color: #4d7fb8; }
+  .opt-item input { display: none; }
+  .opt-item .t { font-size: 13px; font-weight: 600; color: #c3cddd; }
+  .opt-item .d { font-size: 11px; color: #7b8595; }
+  .opt-item.active {
+    background: #17291f; border-color: #3d7a55;
+    box-shadow: 0 0 0 2px rgba(84,163,114,.13);
+  }
+  .opt-item.active .t { color: #9fe0b4; }
+  .opt-item.active .d { color: #6fa888; }
+  .opt-tip {
+    margin: 9px 0 0; font-size: 11.5px; line-height: 1.6; color: #7b8595;
+  }
+
+  /* ---------- 主区域 ---------- */
+  .main {
+    flex: 1; display: flex; min-height: 0;
+    padding: 12px; gap: 12px;
+  }
+  .panel {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+    background: #171b24; border: 1px solid #262c3a; border-radius: 10px;
+    padding: 12px;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .panel-head h2 {
+    font-size: 12px; margin: 0; color: #9aa4bb; font-weight: 600;
+    letter-spacing: .8px; text-transform: uppercase;
+  }
+  .panel-head .spacer { flex: 1; }
+  .panel-head button {
+    font-size: 12px; padding: 3px 10px; border-radius: 6px;
+    background: #23242e; border: 1px solid #34384a; color: #b8c4d8;
+  }
+  .panel-head button:hover { background: #2f3548; border-color: #4d7fb8; color: #cfe3ff; }
+
+  /* 面板内的主按钮需要覆盖上面的通用样式 */
+  .panel-head button.btn-primary {
+    background: #1d3a2a; border-color: #3d7a55; color: #9fe0b4; font-weight: 600;
+    padding: 3px 16px;
+  }
+  .panel-head button.btn-primary:hover {
+    background: #265038; border-color: #54a372; color: #c2f2d3;
+  }
+
+  textarea {
+    flex: 1; width: 100%; resize: none;
+    background: #0d1017; color: #d8dee9;
+    border: 1px solid #262c3a; border-radius: 8px; padding: 10px;
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: 13px; line-height: 1.6; outline: none;
+    box-sizing: border-box;
+  }
+  textarea:focus { border-color: #4a6cf7; }
+  textarea::placeholder { color: #4f5668; }
+
+  pre {
+    flex: 1; margin: 0; overflow: auto;
+    background: #0d1017; border: 1px solid #262c3a; border-radius: 8px; padding: 10px;
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: 13px; line-height: 1.6; white-space: pre; color: #cfe3ff;
+  }
+
+  /* ---------- 底部状态栏 ---------- */
+  .bottom {
+    flex-shrink: 0; border-top: 1px solid #26262e; background: #181820;
+    padding: 8px 14px 9px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    min-height: 38px;
+  }
+  #msg { font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; }
+  #msg:empty { display: none; }
+  #msg.ok   { color: #6fd4a0; }
+  #msg.err  { color: #ff8f6b; }
+  #msg.warn { color: #e8a33d; }
+
+  .hint { font-size: 12px; color: #7b8595; }
+  .hint code {
+    font-family: ui-monospace, Consolas, monospace;
+    background: #1e2534; color: #a8d4ff;
+    padding: 1px 5px; border-radius: 3px; font-size: 12px;
+  }
+
+  /* ---------- Info 弹窗 ---------- */
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 100;
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+    background: rgba(6, 8, 12, .74);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+  .modal-mask.show { display: flex; }
+
+  .modal {
+    width: min(720px, 100%);
+    max-height: min(82vh, 780px);
+    display: flex; flex-direction: column;
+    background: #171b24;
+    border: 1px solid #2c3446;
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.62);
+    overflow: hidden;
+    animation: modalPop .16s ease-out;
+  }
+  @keyframes modalPop {
+    from { transform: translateY(10px) scale(.985); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+
+  .modal-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 11px 14px;
+    background: #141821;
+    border-bottom: 1px solid #262c3a;
+  }
+  .modal-head .modal-icon { font-size: 14px; line-height: 1; }
+  .modal-head h3 {
+    margin: 0; font-size: 14px; font-weight: 700;
+    color: #dbe6f5; letter-spacing: .4px;
+  }
+  .modal-head .spacer { flex: 1; }
+  .modal-close {
+    width: 26px; height: 26px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; line-height: 1;
+    border-radius: 6px;
+    background: #23242e; border: 1px solid #34384a; color: #b8c4d8;
+  }
+  .modal-close:hover { background: #3a2a2e; border-color: #7a4a4a; color: #ffb3b3; }
+
+  .modal-body {
+    padding: 16px; overflow: auto;
+    font-size: 13px; line-height: 1.78; color: #b9c3d4;
+  }
+  .modal-body p { margin: 0 0 10px; }
+  .modal-body h4 {
+    display: flex; align-items: center; gap: 8px;
+    margin: 20px 0 9px;
+    font-size: 13px; font-weight: 700; color: #cfe3ff;
+    letter-spacing: .4px;
+  }
+  .modal-body h4:first-of-type { margin-top: 14px; }
+  .modal-body h4::before {
+    content: ""; flex: none;
+    width: 3px; height: 13px; border-radius: 2px;
+    background: linear-gradient(180deg, #5a8fd8, #2b4a75);
+  }
+  .modal-body code {
+    font-family: ui-monospace, Consolas, monospace;
+    background: #1e2534; color: #a8d4ff;
+    padding: 1px 5px; border-radius: 3px; font-size: 12px;
+    word-break: break-word;
+  }
+  .modal-body .lead {
+    background: #141a26;
+    border: 1px solid #26303f;
+    border-left: 3px solid #4d7fb8;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #c6d4e8;
+  }
+  .modal-body .ai-note {
+    margin: 18px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid #262c3a;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: #7b8595;
+  }
+  .grp {
+    background: #151a23;
+    border: 1px solid #262c3a;
+    border-radius: 8px;
+    padding: 10px 12px 2px;
+    margin-bottom: 10px;
+  }
+  .grp-title {
+    display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;
+  }
+  .grp-title b { font-size: 13px; color: #9fe0b4; letter-spacing: .5px; }
+  .grp-title span { font-size: 12px; color: #7b8595; }
+  .grp p { margin: 0 0 8px; }
+
+  @media (max-width: 640px) {
+    .main { flex-direction: column; }
+    .app-header .powered { margin-left: 0; width: 100%; }
+    .info-btn { align-self: flex-start; margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= 标题栏 ======================= -->
+<header class="app-header">
+  <h1>aff地面物件投影化工具</h1>
+  <span class="sub">tap / hold → 阴影 arc 组 · 自动写入 timing 语句</span>
+  <span class="sub powered">Powered by <b>DeepSeek</b> · 🐋 大肥鱼帮你给谱面做隐写术 😶‍🌫️</span>
+  <button id="btnInfo" class="info-btn" type="button"
+          title="查看工具运行逻辑与分组说明" aria-label="查看工具运行逻辑与分组说明">ℹ️</button>
+</header>
+
+<!-- ======================= 全局参数栏 ======================= -->
+<div class="global-bar">
+  <div id="bpmWrap">
+    <label>基准 BPM
+      <input id="baseBpm" type="number" step="0.01" value="120"
+             title="必须为正浮点数，写入每组首行 timing(0,基准BPM,4.00);">
+    </label>
+  </div>
+
+  <div id="yWrap">
+    <label>投影高度 Y
+      <input id="projY" type="number" step="0.01" value="10"
+             title="投影 arc 使用的超高 y 常量，默认 10（超出视野）。必须为正浮点数。">
+    </label>
+  </div>
+
+  <button id="btnClear">清空全部</button>
+
+  <span class="hint">
+    输入格式：<code>(时间,轨道);</code> 或 <code>hold(开始时间,结束时间,轨道);</code>
+  </span>
+</div>
+
+<!-- ======================= 投影加深 展开栏 ======================= -->
+<div class="opt-bar" id="optBar">
+  <button class="opt-head" id="optHead" type="button"
+          aria-expanded="false" aria-controls="optBody"
+          title="展开 / 收起 投影加深选项">
+    <span class="chev" aria-hidden="true">▶</span>
+    <span class="opt-name">投影加深</span>
+    <span class="spacer"></span>
+    <span class="opt-badge" id="optBadge">关闭 · 单层</span>
+  </button>
+
+  <div class="opt-body" id="optBody">
+    <div class="opt-row">
+      <label class="opt-item active" data-value="1">
+        <input type="radio" name="projDepth" value="1" checked>
+        <span class="t">关闭</span>
+        <span class="d">单层投影 · 默认</span>
+      </label>
+      <label class="opt-item" data-value="2">
+        <input type="radio" name="projDepth" value="2">
+        <span class="t">加深一次</span>
+        <span class="d">双层叠加 · 阴影更浓</span>
+      </label>
+      <label class="opt-item" data-value="3">
+        <input type="radio" name="projDepth" value="3">
+        <span class="t">加深两次</span>
+        <span class="d">三层叠加 · 最明显</span>
+      </label>
+    </div>
+    <p class="opt-tip">
+      加深仅重复组 1 中的投影 arc，层数越多阴影越浓；组 2 的辅助蛇与组 3 的真实判定不受影响。
+    </p>
+  </div>
+</div>
+
+<!-- ======================= 主区域 ======================= -->
+<div class="main">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>输入</h2>
+      <span class="spacer"></span>
+      <button id="btnRun" class="btn-primary" title="快捷键：Ctrl / Cmd + Enter">转换</button>
+      <button id="btnClearIn">清空输入</button>
+    </div>
+    <textarea id="input" spellcheck="false" placeholder="(1000,3);&#10;hold(2000,2500,1.25);&#10;(3000,0);&#10;hold(4000,4800,5);"></textarea>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>输出</h2>
+      <span class="spacer"></span>
+      <button id="btnCopy">复制结果</button>
+    </div>
+    <pre id="output"></pre>
+  </div>
+</div>
+
+<!-- ======================= 底部状态 ======================= -->
+<div class="bottom">
+  <span id="msg"></span>
+</div>
+
+<!-- ======================= Info 弹窗 ======================= -->
+<div class="modal-mask" id="infoMask" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+    <div class="modal-head">
+      <span class="modal-icon" aria-hidden="true">ℹ️</span>
+      <h3 id="infoTitle">地面物件投影化工具 · 运行逻辑</h3>
+      <span class="spacer"></span>
+      <button class="modal-close" id="btnInfoClose" type="button" aria-label="关闭说明">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <p class="lead">
+        本工具把地面物件“投影化”：借助超高 Arc、Trace、SingleArctap，让它们在地面投下阴影，
+        从而为谱面带来一层风格化的视觉表现。原始 Tap / Hold 语句会被完整保留放入独立时间组，
+        判定不受影响。
+      </p>
+
+      <h4>工具整体逻辑</h4>
+      <p>
+        工具会为每一个 Tap / Hold 生成一个 SingleArctap 或多条投影蛇：Arc 的 y 坐标被固定为超出视野的
+        投影高度 Y（默认 10，可在顶部参数栏调整）。
+	每个Tap直接对应一个独立的SingleArctap；
+	每个Hold对应两蛇一黑线：在中心放置一条Trace，两Arc再从 x 坐标上做 ±0.13 的微调，
+        它们的投影看起来酷似影子构成的Hold物件。
+        所有生成结果以多个 timinggroup 包裹，共分三组。
+        本工具使用的思路（短辅助蛇）也避免了屏外直角蛇带来的横阴影瑕疵。
+      </p>
+
+      <h4>分组逻辑</h4>
+
+      <div class="grp">
+        <div class="grp-title"><b>组 1</b><span>投影主体</span></div>
+        <p>
+          在 timinggroup(noinput){ … } 内部，承载全部的投影用 arc：
+          tap 会转换为单个 SingleArctap；
+          hold 会转换为一左一右两条 Arc（x±0.13）再加一条中心 Trace，模仿 hold 的外观。
+	  会根据选择的加深次数而加深（即直接叠多层Arc）
+        </p>
+      </div>
+
+      <div class="grp">
+        <div class="grp-title"><b>组 2</b><span>短辅助蛇，掩盖高度指示器</span></div>
+        <p>
+          同样包裹于另一个 timinggroup(noinput)，并带有 hidegroup。
+          组 2 的辅助蛇固定为 1ms 长，紧接在投影蛇起点之前（t = start-1）；
+          以短辅助蛇掩盖高度指示器，避免提前触发 noinput 的蛇淡出效果让 hold 掉色。
+          而组 2 自身又被 hidegroup 隐藏，则它既不显示阴影也不显示高度指示器。
+        </p>
+      </div>
+
+      <div class="grp">
+        <div class="grp-title"><b>组 3</b><span>隐藏的实际判定</span></div>
+        <p>
+          timinggroup(){ … } 中原样放置用户粘贴的 tap / hold 语句，
+          并同样 hidegroup。
+          它们负责真正的判定。（组3内容也可以直接复制拿来回滚）
+        </p>
+      </div>
+
+      <h4>投影加深功能</h4>
+      <p>
+        顶部的「投影加深」展开栏提供三档：关闭（默认，单层）、加深一次（双层叠加）、加深两次（三层叠加）。
+        选择加深后，组 1 内的每一条投影 Arc 会被重复写入相应次数，在画面上叠出更浓的阴影，
+        让投影 Hold 在视觉上更明显，也便于适配不同的轨道颜色。（不包括用于实现SingleArctap的语句）
+        该选项只作用于组 1 的Arc/Trace，组1的SingleArctap、组 2 的辅助蛇与组 3 的真实判定物件保持原样不变。
+      </p>
+
+      <h4>输入格式</h4>
+      <p>
+        Tap：(时间,轨道); 
+	Hold：hold(开始时间,结束时间,轨道); 
+        轨道数写整数 0~5 时按六个整数轨道对齐；写成浮点数时按x = 2 × 轨道 − 0.5 换算。
+        无法识别的行会被忽略，并在底部状态栏给出提示。（目前仅支持tap/hold）
+      </p>
+
+      <p class="ai-note">
+        本工具由 AI 代笔，可能缺少润色，请理解。
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+   *  元素引用
+   * ========================================================= */
+  const input    = document.getElementById('input');
+  const output   = document.getElementById('output');
+  const msgEl    = document.getElementById('msg');
+  const bpmEl    = document.getElementById('baseBpm');
+  const bpmWrap  = document.getElementById('bpmWrap');
+  const yEl      = document.getElementById('projY');
+  const yWrap    = document.getElementById('yWrap');
+
+  const infoMask = document.getElementById('infoMask');
+  const btnInfo  = document.getElementById('btnInfo');
+  const btnInfoClose = document.getElementById('btnInfoClose');
+
+  /* =========================================================
+   *  格式正则与查表
+   * ========================================================= */
+  const NUM = String.raw`[-+]?(?:\d+\.\d*|\.\d+|\d+)`;
+  const TAP_RE  = new RegExp('^\\(\\s*(' + NUM + ')\\s*,\\s*(' + NUM + ')\\s*\\)\\s*;\\s*$');
+  const HOLD_RE = new RegExp('^hold\\s*\\(\\s*(' + NUM + ')\\s*,\\s*(' + NUM + ')\\s*,\\s*(' + NUM + ')\\s*\\)\\s*;\\s*$');
+
+  const INT_TABLE = [-0.75, -0.25, 0.25, 0.75, 1.25, 1.75];
+
+  /* =========================================================
+   *  工具函数
+   * ========================================================= */
+  function fmt(n){
+    if (typeof n === 'string') n = parseFloat(n);
+    if (!isFinite(n)) return '0';
+    let s = n.toFixed(3);
+    if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    if (s === '-0') s = '0';
+    return s;
+  }
+
+  function trackToX(str){
+    const isFloat = str.indexOf('.') >= 0;
+    const v = parseFloat(str);
+    if (!isFinite(v)) return null;
+    if (isFloat) return 2 * v - 0.5;                                // 浮点轨道
+    if (v >= 0 && v <= 5 && Math.floor(v) === v) return INT_TABLE[v]; // 整数轨道 0~5
+    return null;
+  }
+
+  function setMsg(text, cls){
+    msgEl.textContent = text || '';
+    msgEl.className = cls || '';
+  }
+
+  /* =========================================================
+   *  基准 BPM 校验
+   * ========================================================= */
+  function parseBpm(){
+    const raw = String(bpmEl.value).trim();
+    if (raw === '') return { ok:false, msg:'基准 BPM 不能为空' };
+    const v = Number(raw);
+    if (!Number.isFinite(v)) return { ok:false, msg:'基准 BPM 必须是有效数字' };
+    if (v <= 0)             return { ok:false, msg:'基准 BPM 必须为正浮点数' };
+    return { ok:true, value: v };
+  }
+
+  /* 填写完成后（blur / change）单独报错 */
+  function validateBpm(showMsg){
+    const r = parseBpm();
+    bpmWrap.classList.toggle('invalid', !r.ok);
+    if (showMsg){
+      if (!r.ok) setMsg('⚠ ' + r.msg, 'err');
+      else       setMsg('');
+    }
+    return r;
+  }
+
+  bpmEl.addEventListener('blur',  () => validateBpm(true));
+  bpmEl.addEventListener('change',() => validateBpm(true));
+
+  /* 输入时：如果之前是错误状态，一旦改好立刻清除红框 */
+  bpmEl.addEventListener('input', () => {
+    if (!bpmWrap.classList.contains('invalid')) return;
+    const r = parseBpm();
+    if (r.ok){
+      bpmWrap.classList.remove('invalid');
+      setMsg('');
+    }
+  });
+
+  /* =========================================================
+   *  投影高度 Y 校验
+   * ========================================================= */
+  function parseProjY(){
+    const raw = String(yEl.value).trim();
+    if (raw === '') return { ok:false, msg:'投影高度 Y 不能为空' };
+    const v = Number(raw);
+    if (!Number.isFinite(v)) return { ok:false, msg:'投影高度 Y 必须是有效数字' };
+    if (v <= 0)              return { ok:false, msg:'投影高度 Y 必须为正浮点数' };
+    return { ok:true, value: v };
+  }
+
+  function validateProjY(showMsg){
+    const r = parseProjY();
+    yWrap.classList.toggle('invalid', !r.ok);
+    if (showMsg){
+      if (!r.ok) setMsg('⚠ ' + r.msg, 'err');
+      else       setMsg('');
+    }
+    return r;
+  }
+
+  yEl.addEventListener('blur',  () => validateProjY(true));
+  yEl.addEventListener('change',() => validateProjY(true));
+
+  yEl.addEventListener('input', () => {
+    if (!yWrap.classList.contains('invalid')) return;
+    const r = parseProjY();
+    if (r.ok){
+      yWrap.classList.remove('invalid');
+      setMsg('');
+    }
+  });
+
+  /* =========================================================
+   *  投影加深 展开栏
+   * ========================================================= */
+  const optBar   = document.getElementById('optBar');
+  const optHead  = document.getElementById('optHead');
+  const optBadge = document.getElementById('optBadge');
+  const optItems = Array.prototype.slice.call(document.querySelectorAll('.opt-item'));
+  const depthRadios = document.querySelectorAll('input[name="projDepth"]');
+
+  const DEPTH_TEXT = {
+    '1': '关闭 · 单层',
+    '2': '加深一次 · 双层',
+    '3': '加深两次 · 三层'
+  };
+
+  /* 取当前层数：1=关闭（单层），2=加深一次（双层），3=加深两次（三层） */
+  function getDepth(){
+    const c = document.querySelector('input[name="projDepth"]:checked');
+    if (!c) return 1;
+    const v = parseInt(c.value, 10);
+    return (v >= 1 && v <= 3) ? v : 1;
+  }
+
+  function syncDepthUI(){
+    const d = String(getDepth());
+    optBadge.textContent = DEPTH_TEXT[d] || DEPTH_TEXT['1'];
+    optItems.forEach(function(it){
+      it.classList.toggle('active', it.dataset.value === d);
+    });
+  }
+
+  optHead.addEventListener('click', function(){
+    const open = optBar.classList.toggle('open');
+    optHead.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  Array.prototype.forEach.call(depthRadios, function(r){
+    r.addEventListener('change', syncDepthUI);
+  });
+
+  syncDepthUI();
+
+  /* =========================================================
+   *  辅助蛇长度：固定为 1 长
+   * ========================================================= */
+  const AUX_LEN = 1;
+
+  /* =========================================================
+   *    生成投影组：
+   *    组1 承载全部投影 arc（按“投影加深”层数重复写入）
+   *    组2 用固定 1 长的短辅助蛇掩盖高度指示器
+   * ========================================================= */
+  function convert(){
+    /* ---- 1. 基准 BPM 校验（独立报错） ---- */
+    const bpm = parseBpm();
+    if (!bpm.ok){
+      bpmWrap.classList.add('invalid');
+      setMsg('⚠ ' + bpm.msg, 'err');
+      output.textContent = '';
+      bpmEl.focus();
+      return;
+    }
+
+    /* ---- 1.5 投影高度 Y 校验（独立报错） ---- */
+    const projY = parseProjY();
+    if (!projY.ok){
+      yWrap.classList.add('invalid');
+      setMsg('⚠ ' + projY.msg, 'err');
+      output.textContent = '';
+      yEl.focus();
+      return;
+    }
+
+    const bpmStr = fmt(bpm.value);
+    const yStr   = fmt(projY.value);   // 投影用超高 y 常量（默认 10）
+    const n      = AUX_LEN;            // 辅助蛇长度：固定 1
+    const depth  = getDepth();         // 投影加深层数：1 / 2 / 3
+
+    /* ---- 2. 逐行识别 ---- */
+    const lines = input.value.split(/\r?\n/);
+
+    const g1 = [];   // 组1：主体阴影
+    const g2 = [];   // 组2：短辅助蛇
+    const g3 = [];   // 组3：原始物件
+
+    /* 按“投影加深”层数把一条 arc 重复写入组 1
+       带 [arctap(...)] 的语句（SingleArctap）不参与加深，始终只写一次 */
+    function pushG1(str){
+      const repeat = str.indexOf('[arctap(') >= 0 ? 1 : depth;
+      for (let k = 0; k < repeat; k++) g1.push(str);
+    }
+
+    let okCount  = 0;
+    let badCount = 0;
+
+    for (let i = 0; i < lines.length; i++){
+      const line = lines[i].trim();
+      if (line === '') continue;
+
+      /* ---- tap ---- */
+      let m = TAP_RE.exec(line);
+      if (m){
+        const t = parseFloat(m[1]);
+        const x = trackToX(m[2]);
+        if (x === null){ badCount++; continue; }
+
+        const ts = fmt(t);
+        const xs = fmt(x);
+        pushG1('arc(' + ts + ',' + fmt(t + 1) + ',' + xs + ',' + xs +
+               ',s,' + yStr + ',' + yStr + ',0,none,true)[arctap(' + ts + ')];');
+        g3.push(line);
+        okCount++;
+        continue;
+      }
+
+      /* ---- hold ---- */
+      m = HOLD_RE.exec(line);
+      if (m){
+        const s = parseFloat(m[1]);
+        const e = parseFloat(m[2]);
+        const x = trackToX(m[3]);
+        if (x === null){ badCount++; continue; }
+
+        const ss = fmt(s);
+        const es = fmt(e);
+        const xl = fmt(x - 0.13);
+        const xr = fmt(x + 0.13);
+        const xc = fmt(x);
+
+        /* --- 组1：左右两根 + 中心 arc（按层数重复） --- */
+        pushG1('arc(' + ss + ',' + es + ',' + xl + ',' + xl + ',s,' + yStr + ',' + yStr + ',0,none,false);');
+        pushG1('arc(' + ss + ',' + es + ',' + xr + ',' + xr + ',s,' + yStr + ',' + yStr + ',0,none,false);');
+        pushG1('arc(' + ss + ',' + es + ',' + xc + ',' + xc + ',s,' + yStr + ',' + yStr + ',0,none,true);');
+
+        /* --- 组2：短辅助蛇（固定 1 长，不加深） --- */
+        const start2 = (s - n < 0) ? (s - 1) : (s - n);
+        const s2 = fmt(start2);
+        g2.push('arc(' + s2 + ',' + ss + ',' + xl + ',' + xl + ',s,' + yStr + ',' + yStr + ',0,none,false);');
+        g2.push('arc(' + s2 + ',' + ss + ',' + xr + ',' + xr + ',s,' + yStr + ',' + yStr + ',0,none,false);');
+
+        /* --- 组3：原样保留 --- */
+        g3.push(line);
+        okCount++;
+        continue;
+      }
+
+      /* ---- 其他类别语句：忽略 ---- */
+      badCount++;
+    }
+
+    /* ---- 3. 未找到合法语句 ---- */
+    if (okCount === 0){
+      output.textContent = '';
+      setMsg('⚠ 未在粘贴内容中找到合法的 tap / hold 语句。请检查格式：(时间,轨道); 或 hold(开始时间,结束时间,轨道);', 'err');
+      return;
+    }
+
+    /* ---- 4. 拼装最终输出 ---- */
+    const timingLine = 'timing(0,' + bpmStr + ',4.00);';
+    const out = [];
+
+    /* 组1 */
+    out.push('timinggroup(noinput){');
+    out.push('  ' + timingLine);
+    for (let i = 0; i < g1.length; i++) out.push('  ' + g1[i]);
+    out.push('};');
+
+    /* 组2 */
+    out.push('timinggroup(noinput){');
+    out.push('  ' + timingLine);
+    out.push('  scenecontrol(0,hidegroup,0.00,1);');
+    for (let i = 0; i < g2.length; i++) out.push('  ' + g2[i]);
+    out.push('};');
+
+    /* 组3 */
+    out.push('timinggroup(){');
+    out.push('  ' + timingLine);
+    out.push('  scenecontrol(0,hidegroup,0.00,1);');
+    for (let i = 0; i < g3.length; i++) out.push('  ' + g3[i]);
+    out.push('};');
+
+    output.textContent = out.join('\n');
+
+    /* ---- 5. 反馈 ---- */
+    const depthNote = (depth > 1) ? ('（投影加深：' + (depth === 2 ? '双层' : '三层') + '）') : '';
+    if (badCount > 0){
+      setMsg('✓ 已转换 ' + okCount + ' 个物件' + depthNote + '，忽略了 ' + badCount + ' 行无法识别的语句。', 'warn');
+    } else {
+      setMsg('✓ 已转换 ' + okCount + ' 个物件' + depthNote + '。', 'ok');
+    }
+  }
+
+  /* =========================================================
+   *  Info 弹窗控制
+   * ========================================================= */
+  function openInfo(){
+    infoMask.classList.add('show');
+    infoMask.setAttribute('aria-hidden', 'false');
+    btnInfoClose.focus();
+  }
+
+  function closeInfo(){
+    if (!infoMask.classList.contains('show')) return;
+    infoMask.classList.remove('show');
+    infoMask.setAttribute('aria-hidden', 'true');
+    btnInfo.focus();
+  }
+
+  btnInfo.addEventListener('click', openInfo);
+  btnInfoClose.addEventListener('click', closeInfo);
+  infoMask.addEventListener('click', (ev) => { if (ev.target === infoMask) closeInfo(); });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') closeInfo();
+  });
+
+  /* =========================================================
+   *  事件绑定
+   * ========================================================= */
+  document.getElementById('btnRun').addEventListener('click', convert);
+
+  document.getElementById('btnClearIn').addEventListener('click', () => {
+    input.value = '';
+    output.textContent = '';
+    setMsg('');
+    input.focus();
+  });
+
+  document.getElementById('btnClear').addEventListener('click', () => {
+    input.value = '';
+    output.textContent = '';
+    setMsg('');
+    bpmWrap.classList.remove('invalid');
+    yWrap.classList.remove('invalid');
+    input.focus();
+  });
+
+  document.getElementById('btnCopy').addEventListener('click', () => {
+    const txt = output.textContent;
+    if (!txt){
+      setMsg('没有可复制的内容。', 'err');
+      return;
+    }
+    const done = () => {
+      setMsg('✓ 已复制到剪贴板。', 'ok');
+      setTimeout(() => { if (msgEl.textContent === '✓ 已复制到剪贴板。') setMsg(''); }, 1500);
+    };
+    const fallback = () => {
+      const range = document.createRange();
+      range.selectNodeContents(output);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      try { document.execCommand('copy'); done(); }
+      catch (e) { setMsg('复制失败，请手动选择文本复制。', 'err'); }
+      sel.removeAllRanges();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done).catch(fallback);
+    } else {
+      fallback();
+    }
+  });
+
+  /* 输入框内 Ctrl+Enter 快捷转换 */
+  input.addEventListener('keydown', (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter'){
+      ev.preventDefault();
+      convert();
+    }
+  });
+
+  /* BPM 框内 Enter 直接触发转换 */
+  bpmEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      convert();
+    }
+  });
+
+  /* 投影高度 Y 框内 Enter 直接触发转换 */
+  yEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter'){
+      ev.preventDefault();
+      convert();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>aff可视化位移规划工具</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    display:flex;flex-direction:column;height:100vh;overflow:hidden;
+    font-family:system-ui,"Microsoft YaHei",sans-serif;
+    background:#121217;color:#e2e2e8;font-size:14px;
+  }
+
+  /* ---------- 标题栏 ---------- */
+  .app-header{
+    display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+    padding:9px 14px 7px;background:#141419;border-bottom:1px solid #22222a;
+  }
+  .app-header h1{
+    font-size:16px;margin:0;font-weight:700;color:#e8eef6;letter-spacing:.5px;
+  }
+  .app-header .sub{font-size:11px;color:#7b8595;}
+
+  /* ---------- 顶部全局参数栏 ---------- */
+  .global-bar{
+    display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+    padding:8px 14px;background:#181820;border-bottom:1px solid #26262e;
+  }
+  .global-bar label{display:flex;gap:6px;align-items:center;white-space:nowrap;}
+  input,select,button{
+    font:inherit;background:#25252e;color:#e2e2e8;border:1px solid #3a3a46;
+    border-radius:4px;padding:3px 6px;outline:none;
+  }
+  input:focus,select:focus{border-color:#5a8fd8;}
+  input[type=number]{width:88px;}
+  button{cursor:pointer;transition:.12s;}
+  button:hover{background:#33333e;}
+  .warn-text{color:#e8a33d;}
+
+  .btn-toggle{
+    padding:3px 12px;
+    display:inline-flex;align-items:center;gap:5px;
+  }
+  .btn-toggle.active{
+    background:#1a2b42;
+    border-color:#6fb6ff;
+    color:#a8d4ff;
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.65);
+    font-weight:600;
+  }
+  .tag-beta{font-size:10px;opacity:.72;font-weight:400;}
+
+  .btn-group{display:flex;gap:6px;align-items:center;white-space:nowrap;}
+  .btn-group .group-label{color:#c8d4e2;}
+
+  /* ---------- 主区域 ---------- */
+  .main{flex:1;display:flex;min-height:0;}
+  .canvas-wrap{flex:1;position:relative;min-width:0;overflow:hidden;background:#14141a;}
+  canvas{position:absolute;inset:0;display:block;}
+
+  #warnBox{
+    position:absolute;left:50%;top:14px;transform:translateX(-50%);
+    padding:5px 14px;border-radius:5px;background:rgba(232,163,61,.92);
+    color:#1a1a1a;font-size:13px;font-weight:600;pointer-events:none;
+    opacity:0;transition:opacity .25s;
+  }
+
+  /* 测量结果浮层 */
+  #measureBox{
+    position:absolute;left:70px;top:22px;
+    min-width:254px;
+    background:rgba(18,20,28,.94);
+    border:1px solid #39415a;
+    border-radius:6px;
+    padding:10px 14px 9px;
+    font-size:12px;
+    color:#d0d8e6;
+    pointer-events:none;
+    box-shadow:0 4px 16px rgba(0,0,0,.55);
+    backdrop-filter:blur(3px);
+  }
+  .measure-head{
+    font-size:11px;font-weight:700;color:#8fb8dd;
+    margin-bottom:7px;letter-spacing:.4px;
+  }
+  .measure-grid{
+    display:grid;grid-template-columns:auto 1fr;
+    gap:3px 12px;
+    font-family:ui-monospace,Consolas,monospace;
+    font-size:12px;
+  }
+  .measure-grid .mk{color:#7b8595;}
+  .measure-grid .mv{text-align:right;color:#e8eef6;}
+  .measure-note{
+    margin-top:8px;padding-top:7px;
+    border-top:1px solid #2a2e3e;
+    font-size:11px;color:#7b8595;line-height:1.45;
+  }
+  .measure-note .pos{color:#6fd4a0;}
+  .measure-note .zero{color:#ffd966;}
+  .measure-note .neg{color:#ff8080;}
+
+  /* ---------- 右侧面板 ---------- */
+  .side{
+    width:308px;flex-shrink:0;border-left:1px solid #26262e;
+    background:#16161c;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px;
+  }
+  .section-title{font-size:13px;font-weight:700;color:#9aa3b2;letter-spacing:.5px;margin-bottom:8px;}
+  .muted{color:#767f8e;font-size:13px;}
+  .field{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .field label{width:74px;color:#9aa3b2;font-size:13px;flex-shrink:0;}
+  .field input{flex:1;width:auto;}
+  .field input:disabled{opacity:.5;cursor:not-allowed;}
+
+  #nodeList{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+  .node-row{
+    display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:4px;
+    background:#1e1e26;cursor:pointer;font-family:ui-monospace,Consolas,monospace;
+    font-size:13px;border:1px solid transparent;
+  }
+  .node-row:hover{background:#262630;}
+  .node-row.sel{background:#24313f;border-color:#4d7fb8;}
+  .node-row .tag{font-size:11px;color:#6fb6ff;}
+  .node-row .tag.start,.node-row .tag.end{color:#ffcc55;}
+  .node-row .t{flex:1;color:#c8d4e2;}
+  .node-row .t.lock{color:#9aa3b2;}
+  .node-row .t.lock::after{content:'🔒';font-size:9px;margin-left:3px;opacity:.6;}
+  .node-row .m{color:#8fb8dd;}
+  .node-row .del{
+    padding:0 6px;background:transparent;border:none;color:#666;font-size:14px;line-height:1;
+  }
+  .node-row .del:hover{color:#ff6b6b;background:transparent;}
+
+  /* ---------- 底部输出 ---------- */
+  .bottom{
+    flex-shrink:0;border-top:1px solid #26262e;background:#181820;
+    padding:8px 14px 10px;
+  }
+  .bottom-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+  .bottom-head h2{font-size:13px;margin:0;color:#9aa3b2;letter-spacing:.5px;}
+  .spacer{flex:1;}
+  /* 底栏右侧的 info 按钮 */
+  #btnInfo{
+    width:22px;height:22px;padding:0;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:13px;line-height:1;
+    background:#25252e;border:1px solid #3a3a46;color:#8fb8dd;
+  }
+  #btnInfo:hover{background:#2f3b4e;border-color:#5a8fd8;color:#a8d4ff;}
+
+  /* ---------- timing 段落导入面板 ---------- */
+  #importPanel{
+    margin:0 0 9px;
+    padding:9px 11px 8px;
+    background:#121218;
+    border:1px solid #2d3040;
+    border-radius:6px;
+  }
+  #importArea{
+    width:100%;height:82px;resize:vertical;
+    font-family:ui-monospace,Consolas,monospace;
+    font-size:12.5px;line-height:1.55;
+    background:#0f0f14;color:#9fe8a0;
+    border:1px solid #3a3a46;border-radius:4px;
+    padding:7px;
+  }
+  #importArea::placeholder{color:#4f5668;}
+  #importArea:focus{border-color:#5a8fd8;}
+  .import-actions{display:flex;gap:8px;align-items:center;margin-top:7px;}
+  #importRun{
+    background:#1d3a2a;border-color:#3d7a55;color:#9fe0b4;font-weight:600;
+  }
+  #importRun:hover{background:#265038;border-color:#54a372;color:#c2f2d3;}
+  #importMsg{
+    font-size:12px;white-space:pre-wrap;line-height:1.55;margin-top:7px;
+  }
+  #importMsg:empty{display:none;}
+  #importMsg.ok{color:#6fd4a0;}
+  #importMsg.warn{color:#e8a33d;}
+  #importMsg.err{color:#ff8f6b;}
+
+  #info{font-size:12px;color:#8fb8dd;white-space:pre-wrap;line-height:1.55;margin-bottom:6px;}
+  textarea{
+    width:100%;height:104px;resize:vertical;box-sizing:border-box;
+    font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.5;
+    background:#0f0f14;color:#9fe8a0;border:1px solid #3a3a46;border-radius:4px;padding:7px;
+  }
+
+  /* ---------- 信息弹窗 ---------- */
+  #modalBackdrop{
+    position:fixed;inset:0;background:rgba(6,7,10,.72);
+    display:none;align-items:center;justify-content:center;z-index:100;
+    backdrop-filter:blur(2px);
+  }
+  #modalBackdrop.show{display:flex;}
+  .modal{
+    width:min(680px, 92vw);max-height:82vh;overflow-y:auto;
+    background:#17181f;border:1px solid #333850;border-radius:10px;
+    box-shadow:0 10px 40px rgba(0,0,0,.65);
+    padding:20px 24px 22px;
+    color:#d8dee8;font-size:13.5px;line-height:1.65;
+  }
+  .modal-head{
+    display:flex;align-items:center;gap:10px;
+    margin:0 0 14px;padding-bottom:12px;
+    border-bottom:1px solid #2a2e3e;
+  }
+  .modal-head h2{
+    font-size:16px;margin:0;color:#e8eef6;font-weight:700;letter-spacing:.4px;
+  }
+  #btnCloseModal{
+    margin-left:auto;
+    width:28px;height:28px;padding:0;border-radius:6px;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:18px;line-height:1;color:#8b93a3;
+    background:#23242e;border:1px solid #34384a;
+  }
+  #btnCloseModal:hover{background:#3a2a2e;border-color:#a05555;color:#ff8e8e;}
+
+  .modal h3{
+    font-size:13px;margin:18px 0 8px;color:#8fb8dd;letter-spacing:.4px;
+    font-weight:700;
+  }
+  .modal h3:first-of-type{margin-top:4px;}
+  .modal p{margin:6px 0;}
+  .modal ul{margin:6px 0 6px 20px;padding:0;}
+  .modal li{margin:4px 0;}
+  .modal code{
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+    background:#23242e;padding:1px 6px;border-radius:3px;color:#a8d4ff;
+  }
+  .formula{
+    display:block;margin:8px 0;padding:10px 14px;
+    background:#101118;border-left:3px solid #4d7fb8;border-radius:4px;
+    font-family:ui-monospace,Consolas,monospace;font-size:13px;color:#c8d8ec;
+    white-space:pre;
+  }
+  .kv{color:#8fb8dd;font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- ========== 端点速度倍率存储（隐藏） ========== -->
+<input id="startMult" type="number" step="0.01" value="1" style="display:none">
+<input id="endMult"   type="number" step="0.01" value="1" style="display:none">
+
+<!-- ======================= 标题栏 ======================= -->
+<header class="app-header">
+  <h1>aff可视化位移规划工具</h1>
+  <span class="sub">Powered by DeepSeek · 大肥鱼帮你精确规划位移📏</span>
+</header>
+
+<!-- ======================= 全局参数 ======================= -->
+<div class="global-bar">
+  <label>起始时间 <input id="startTime" type="number" step="1" value="0"></label>
+  <label>结束时间 <input id="endTime" type="number" step="1" value="1000"></label>
+  <label>基础 BPM <input id="baseBPM" type="number" step="0.01" value="120"></label>
+  <label>小节线
+    <input id="beats" type="number" step="0.01" min="0.01" value="4.00"
+           title="timing 语句的 beats 参数（每小节拍数）">
+  </label>
+
+  <div class="btn-group">
+    <span class="group-label">位移补正</span>
+    <button id="btnFix" type="button" class="btn-toggle"
+            title="开启：将总位移收拢到判定线；关闭：撤销补正（测试版）">
+      补正<span class="tag-beta">（测试版）</span>
+    </button>
+  </div>
+
+  <button id="btnMeasure" type="button" class="btn-toggle"
+          title="开启后可查看鼠标所在时间戳相对判定线的位移偏移">
+    📏 测量
+  </button>
+
+  <label>纵轴范围
+    <select id="yScale">
+      <option value="1">-1 ~ 1</option>
+      <option value="2" selected>-2 ~ 2</option>
+      <option value="5">-5 ~ 5</option>
+      <option value="10">-10 ~ 10</option>
+      <option value="20">-20 ~ 20</option>
+    </select>
+  </label>
+</div>
+
+<!-- ======================= 主区域 ======================= -->
+<div class="main">
+  <div class="canvas-wrap">
+    <canvas id="cv"></canvas>
+    <div id="warnBox"></div>
+
+    <!-- 测量结果浮层（倒向积分模型） -->
+    <div id="measureBox" hidden>
+      <div class="measure-head">测量 · 结束时间线相对判定线的位置</div>
+      <div class="measure-grid">
+        <span class="mk">时间戳</span><span class="mv" id="mTime">—</span>
+        <span class="mk">物件位置</span><span class="mv" id="mDisp">—</span>
+        <span class="mk">判定线位置</span><span class="mv" id="mBase">—</span>
+        <span class="mk">偏移量 δ</span><span class="mv" id="mOffset">—</span>
+        <span class="mk">末端速度</span><span class="mv" id="mEndV">—</span>
+      </div>
+      <div class="measure-note">
+        δ<span class="pos"> 负数</span>＝尚未触线（正常）　·　
+        <span class="zero">0</span>＝正好触线　·　
+        <span class="neg">正数</span>＝越过判定线<br>
+        末端速度 &gt;0 正面触线　·　&lt;0 背面触线　·　≈0 贴线消失
+      </div>
+    </div>
+  </div>
+
+  <aside class="side">
+    <div>
+      <div class="section-title">选中节点</div>
+      <div id="noSel" class="muted">点击图中圆点进行编辑</div>
+      <div id="selEdit" hidden>
+        <div class="field"><label>时间(ms)</label><input id="selTime" type="number" step="1"></div>
+        <div class="field"><label>速度倍率</label><input id="selMult" type="number" step="0.01"></div>
+        <div class="muted" id="selRole" style="font-size:12px;"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">节点列表</div>
+      <div id="nodeList"></div>
+      <button id="addBtn" style="width:100%;">+ 添加节点</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ======================= 输出 ======================= -->
+<div class="bottom">
+  <div class="bottom-head">
+    <h2>timing 输出（只读）</h2>
+    <button id="copyBtn">复制</button>
+    <span id="copyMsg" class="muted"></span>
+    <span class="spacer"></span>
+    <button id="btnImport" type="button" class="btn-toggle"
+            title="粘贴现成的 timing 段落，自动识别并转为节点">📥 识别timing段落</button>
+    <button id="btnInfo" type="button" title="工具说明">ℹ️</button>
+  </div>
+
+  <!-- 导入面板（默认收起） -->
+  <div id="importPanel" hidden>
+    <textarea id="importArea" spellcheck="false"
+      placeholder="在此粘贴 timing 段落，其余内容会被自动忽略：&#10;timing(0,120.00,4.00);&#10;timing(500,240.00,4.00);&#10;timing(900,60.00,4.00);&#10;&#10;提示：Ctrl + Enter 可直接识别导入"></textarea>
+    <div class="import-actions">
+      <button id="importRun" type="button">识别并导入</button>
+      <button id="importClear" type="button">清空</button>
+    </div>
+    <div id="importMsg"></div>
+  </div>
+
+  <div id="info"></div>
+  <textarea id="output" readonly></textarea>
+</div>
+
+<!-- ======================= 信息弹窗 ======================= -->
+<div id="modalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h2 id="modalTitle">工具说明</h2>
+      <button id="btnCloseModal" type="button" title="关闭">✕</button>
+    </div>
+
+    <h3>核心用途</h3>
+    <p>
+      将 Arcaea 谱面的 timing 规划，转化为一个<b>终点固定的倒向积分问题</b>。
+      任意物件在给定时刻都会尝试触碰判定线并消失——也就是说，它必须在
+      <code>end</code> 时刻精确位于判定线上。本工具让你通过拖拽速度曲线，
+      掌控这个运动过程，并导出可用的 <code>timing()</code> 语句。
+    </p>
+
+    <h3>如何理解各项配置</h3>
+    <ul>
+      <li>
+        <span class="kv">起始 / 结束时间</span> —— 物件的运动区间。
+        两端点的时间被锁定，但速度倍率可以任意调节。
+      </li>
+      <li>
+        <span class="kv">基础 BPM</span> —— 速度单位换算基准。
+        <code>实时速度 = 当前 bpm / 基础 bpm</code>，也就是图中的纵轴。
+      </li>
+      <li>
+        <span class="kv">小节线（beats）</span> —— 直接写入每条
+        <code>timing()</code> 的第三参数，表示每小节拍数，默认 4.00。
+      </li>
+      <li>
+        <span class="kv">位移补正（测试版）</span> —— 一键调整最后一个
+        参与计算的节点倍率，让总位移精确等于判定线位置。再次点击即撤销。
+      </li>
+      <li>
+        <span class="kv">📏 测量</span> —— 开启后鼠标在图中移动，
+        浮层实时显示当前时间戳相对判定线的偏移量 δ 与末端速度。
+      </li>
+      <li>
+        <span class="kv">📥 识别 timing 段落</span> —— 把现成的 timing 语句
+        粘贴进来，自动提取其中的 <code>time</code> 与 <code>bpm</code> 并落成节点。
+        书写不规范的语句、注释与其他内容一律忽略；时间戳若超出当前区间，
+        会自动向外扩展端点，原端点降级为普通节点。
+      </li>
+      <li>
+        <span class="kv">纵轴范围</span> —— 切换速度倍率的可视区间，
+        范围越大越能容纳极端的补正值。
+      </li>
+      <li>
+        <span class="kv">拖拽操作</span> —— 拖动节点圆点即可调整时间
+        与倍率；中间节点时间冲突时会自动撤销该次水平移动。
+      </li>
+    </ul>
+
+    <h3>模型与公式</h3>
+    <p>
+      <span class="kv">坐标系</span>：位移轴。判定线固定在
+      <code>D = 结束时间 − 起始时间</code>。速度
+      <code>v(τ)</code> 即图中的速度倍率。
+    </p>
+    <p><span class="kv">倒向求解物件位置</span>（从终点反推）：</p>
+    <span class="formula">pos(t) = D − ∫<sub>t</sub><sup>t_end</sup> v(τ) dτ</span>
+    <p><span class="kv">到判定线的带符号偏移量</span>：</p>
+    <span class="formula">δ(t) = pos(t) − D = −∫<sub>t</sub><sup>t_end</sup> v(τ) dτ</span>
+    <p>
+      δ 的符号对应三种状态：<b>负</b>＝尚未触线（正常）；
+      <b>0</b>＝正好触线；<b>正</b>＝越过判定线。
+    </p>
+    <p><span class="kv">位移补正目标</span>：</p>
+    <span class="formula">∫<sub>t_start</sub><sup>t_end</sup> v(τ) dτ = D</span>
+    <p><span class="kv">输出语句格式</span>：</p>
+    <span class="formula">timing(time, bpm, beats);
+timing(time, bpm, beats);
+......</span>
+    <p style="margin-top:14px;color:#7b8595;font-size:12px;">
+      提示：末端速度决定触线方式 —— 正值正面触线，负值背面触线，
+      趋近于零则贴线消失。可用测量模式随时核对。
+    </p>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+ *  工具函数
+ * ========================================================= */
+const $ = id => document.getElementById(id);
+
+function getNum(id, def = 0) {
+  const el = $(id);
+  if (!el) return def;
+  const raw = String(el.value).trim();
+  if (raw === '') return def;
+  const v = Number(raw);
+  return Number.isFinite(v) ? v : def;
+}
+
+function niceStep(range, target = 8) {
+  const raw = range / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / pow;
+  const s = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return s * pow;
+}
+
+/* 长列表截断（用于导入反馈） */
+function limitLines(arr, max = 6) {
+  if (arr.length <= max) return arr.slice();
+  return arr.slice(0, max).concat([`……另有 ${arr.length - max} 条问题未逐条列出。`]);
+}
+
+/* =========================================================
+ *  统一更新调度
+ * ========================================================= */
+let needDraw = false, needSide = false, needCompute = false, rafPending = false;
+
+function requestUpdate(opts) {
+  opts = opts || {};
+  if (opts.draw !== false)    needDraw = true;
+  if (opts.side)              needSide = true;
+  if (opts.compute !== false) needCompute = true;
+
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    const doSide = needSide, doDraw = needDraw, doCompute = needCompute;
+    needSide = needDraw = needCompute = false;
+
+    if (doSide) { syncMidToRange(); refreshSidePanel(); }
+    if (doDraw) draw();
+    if (doCompute) compute();
+  });
+}
+
+/* =========================================================
+ *  数据模型
+ * ========================================================= */
+let midNodes = [];
+let nextId = 1;
+let selectedId = null;
+let hoverId = null;
+let dragId = null;
+let layout = null;
+let correction = null;
+
+let measureMode = false;
+let mouseCvX = null;
+let mouseCvY = null;
+
+const rowEls = new Map();
+
+function getAllNodes() {
+  const list = [{
+    id: 'start', role: 'start',
+    t: Math.round(getNum('startTime')),
+    m: getNum('startMult', 1)
+  }];
+  midNodes.forEach(n => list.push({ id: n.id, role: 'mid', t: n.t, m: n.m }));
+  list.push({
+    id: 'end', role: 'end',
+    t: Math.round(getNum('endTime')),
+    m: getNum('endMult', 1)
+  });
+  return list;
+}
+
+function getNode(id) {
+  if (id === 'start') return {
+    id: 'start', role: 'start',
+    t: Math.round(getNum('startTime')),
+    m: getNum('startMult', 1)
+  };
+  if (id === 'end') return {
+    id: 'end', role: 'end',
+    t: Math.round(getNum('endTime')),
+    m: getNum('endMult', 1)
+  };
+  const n = midNodes.find(n => n.id === id);
+  return n ? { id: n.id, role: 'mid', t: n.t, m: n.m } : null;
+}
+
+function setNodeMult(id, m) {
+  if (id === 'start')      $('startMult').value = m;
+  else if (id === 'end')   $('endMult').value = m;
+  else { const n = midNodes.find(n => n.id === id); if (n) n.m = m; }
+}
+
+function syncMidToRange() {
+  const s = Math.round(getNum('startTime'));
+  const e = Math.round(getNum('endTime'));
+  if (!(e > s)) return;
+  midNodes.forEach(n => { n.t = Math.min(e, Math.max(s, Math.round(n.t))); });
+}
+
+/* =========================================================
+ *  序列构建
+ * ========================================================= */
+function buildSequence() {
+  const startTime = Math.round(getNum('startTime'));
+  const endTime   = Math.round(getNum('endTime'));
+  const list = [
+    { t: startTime, m: getNum('startMult', 1), role: 'start', id: 'start' },
+    ...midNodes.map(n => ({ t: n.t, m: n.m, role: 'mid', id: n.id })),
+    { t: endTime, m: getNum('endMult', 1), role: 'end', id: 'end' }
+  ];
+  const prio = { start: 0, end: 1, mid: 2 };
+  list.sort((a, b) => (a.t - b.t) || (prio[a.role] - prio[b.role]));
+
+  const seq = [];
+  for (const n of list) {
+    if (seq.length && seq[seq.length - 1].t === n.t) continue;
+    seq.push(n);
+  }
+  return seq;
+}
+
+/* =========================================================
+ *  倒向积分核心
+ * ========================================================= */
+function displacementBetween(t1, t2) {
+  if (t2 <= t1) return 0;
+  const seq = buildSequence();
+  let sum = 0;
+  for (let i = 0; i < seq.length - 1; i++) {
+    const s = Math.max(seq[i].t, t1);
+    const e = Math.min(seq[i + 1].t, t2);
+    if (e > s) sum += seq[i].m * (e - s);
+  }
+  return sum;
+}
+
+function endVelocity() {
+  const seq = buildSequence();
+  return seq.length >= 2 ? seq[seq.length - 2].m : 0;
+}
+
+/* =========================================================
+ *  补正 / 撤销
+ * ========================================================= */
+function applyFix() {
+  if (correction) {
+    setNodeMult(correction.nodeId, correction.originalMult);
+    correction = null;
+  }
+
+  const startTime = Math.round(getNum('startTime'));
+  const endTime   = Math.round(getNum('endTime'));
+  const baseBPM   = getNum('baseBPM');
+  if (!(endTime > startTime) || !(baseBPM > 0)) return;
+
+  const seq = buildSequence();
+  if (seq.length < 2) return;
+
+  const disp = arr => {
+    let sum = 0;
+    for (let i = 0; i < arr.length - 1; i++) sum += arr[i].m * (arr[i + 1].t - arr[i].t);
+    return sum;
+  };
+
+  const D = endTime - startTime;
+  const total = disp(seq);
+  if (Math.abs(total - D) < 1e-9) {
+    flashWarn('✓ 总位移已对齐，无需补正');
+    return;
+  }
+
+  const lastIdx = seq.length - 2;
+  const node = seq[lastIdx];
+  const span = seq[seq.length - 1].t - node.t;
+  if (span <= 0) return;
+
+  const newMult = node.m + (D - total) / span;
+  correction = { nodeId: node.id, originalMult: node.m };
+  setNodeMult(node.id, newMult);
+}
+
+function undoFix() {
+  if (!correction) return;
+  setNodeMult(correction.nodeId, correction.originalMult);
+  correction = null;
+}
+
+function updateFixButtonState() {
+  $('btnFix').classList.toggle('active', !!correction);
+}
+
+/* =========================================================
+ *  Canvas 尺寸
+ * ========================================================= */
+const cv = $('cv');
+const ctx = cv.getContext('2d');
+let cw = 0, ch = 0;
+
+function resize() {
+  const wrap = cv.parentElement;
+  const r = wrap.getBoundingClientRect();
+  cw = Math.max(120, Math.floor(r.width));
+  ch = Math.max(120, Math.floor(r.height));
+  const dpr = window.devicePixelRatio || 1;
+  cv.width  = Math.round(cw * dpr);
+  cv.height = Math.round(ch * dpr);
+  cv.style.width  = cw + 'px';
+  cv.style.height = ch + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+
+let resizePending = false;
+new ResizeObserver(() => {
+  if (resizePending) return;
+  resizePending = true;
+  requestAnimationFrame(() => { resizePending = false; resize(); });
+}).observe(cv.parentElement);
+
+/* =========================================================
+ *  坐标换算
+ * ========================================================= */
+function screenPos(t, m) {
+  const L = layout;
+  return {
+    x: L.padL + (t - L.tMin) / L.span * L.pw,
+    y: L.padT + (L.yMax - m) / (L.yMax - L.yMin) * L.ph
+  };
+}
+function dataPos(px, py) {
+  const L = layout;
+  return {
+    t: L.tMin + (px - L.padL) / L.pw * L.span,
+    m: L.yMax - (py - L.padT) / L.ph * (L.yMax - L.yMin)
+  };
+}
+
+/* =========================================================
+ *  绘制
+ * ========================================================= */
+function draw() {
+  if (!cw || !ch) return;
+
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.fillStyle = '#14141a';
+  ctx.fillRect(0, 0, cw, ch);
+
+  const padL = 54, padR = 18, padT = 18, padB = 34;
+  const pw = cw - padL - padR;
+  const ph = ch - padT - padB;
+  if (pw < 40 || ph < 40) return;
+
+  const s = Math.round(getNum('startTime'));
+  const e = Math.round(getNum('endTime'));
+  const tMin = Math.min(s, e);
+  const tMax = Math.max(s, e);
+  const span = Math.max(1, tMax - tMin);
+
+  const yv = Number($('yScale').value);
+  const yMin = -yv, yMax = yv;
+
+  layout = { padL, padT, pw, ph, tMin, tMax, span, yMin, yMax };
+
+  const X = t => padL + (t - tMin) / span * pw;
+  const Y = m => padT + (yMax - m) / (yMax - yMin) * ph;
+
+  /* ---------- 水平网格 + Y 轴刻度 ---------- */
+  const yStep = niceStep(yMax - yMin);
+  ctx.font = '11px ui-monospace,Consolas,monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax + 1e-9; v += yStep) {
+    const y = Y(v);
+    ctx.strokeStyle = Math.abs(v) < 1e-9 ? '#3a3a48' : '#23232d';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + pw, y); ctx.stroke();
+    ctx.fillStyle = '#767f8e';
+    ctx.fillText(Number(v.toFixed(2)).toString(), padL - 8, y);
+  }
+
+  /* ---------- 垂直网格 + X 轴刻度 ---------- */
+  const tStep = niceStep(span, Math.max(3, Math.floor(pw / 90)));
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let t = Math.ceil(tMin / tStep) * tStep; t <= tMax + 1e-9; t += tStep) {
+    const x = X(t);
+    ctx.strokeStyle = '#23232d';
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + ph); ctx.stroke();
+    ctx.fillStyle = '#767f8e';
+    ctx.fillText(String(Math.round(t)), x, padT + ph + 6);
+  }
+
+  /* ---------- 坐标轴 ---------- */
+  ctx.strokeStyle = '#3a3a48';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph); ctx.lineTo(padL + pw, padT + ph);
+  ctx.stroke();
+
+  /* ---------- 裁剪区 ---------- */
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(padL, padT, pw, ph);
+  ctx.clip();
+
+  const nodes = getAllNodes().slice().sort((a, b) => a.t - b.t);
+
+  /* ---------- 面积填充 ---------- */
+  const y0 = Y(0);
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = nodes[i], b = nodes[i + 1];
+    if (b.t === a.t) continue;
+    const x0 = X(a.t), x1 = X(b.t);
+    const ym = Y(a.m);
+    ctx.fillStyle = a.m >= 0 ? 'rgba(90,170,255,0.20)' : 'rgba(255,105,105,0.20)';
+    ctx.fillRect(x0, Math.min(y0, ym), x1 - x0, Math.abs(ym - y0));
+  }
+
+  /* ---------- 测量竖线 ---------- */
+  if (measureMode && mouseCvX !== null) {
+    const cx = Math.max(padL, Math.min(padL + pw, mouseCvX));
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, padT);
+    ctx.lineTo(cx, padT + ph);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ---------- 倍率 = 1 参考虚线 ---------- */
+  if (1 >= yMin && 1 <= yMax) {
+    const yb = Y(1);
+    ctx.save();
+    ctx.setLineDash([7, 5]);
+    ctx.strokeStyle = 'rgba(255,205,100,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, yb); ctx.lineTo(padL + pw, yb); ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255,205,100,0.75)';
+    ctx.font = '11px ui-monospace,Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('倍率 = 1', padL + 6, yb - 3);
+  }
+
+  /* ---------- 阶梯折线 ---------- */
+  if (nodes.length > 0) {
+    ctx.beginPath();
+    ctx.moveTo(X(nodes[0].t), Y(nodes[0].m));
+    for (let i = 1; i < nodes.length; i++) {
+      ctx.lineTo(X(nodes[i].t), Y(nodes[i - 1].m));
+      ctx.lineTo(X(nodes[i].t), Y(nodes[i].m));
+    }
+    ctx.strokeStyle = '#6fb6ff';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'miter';
+    ctx.stroke();
+  }
+
+  /* ---------- 节点圆点 ---------- */
+  nodes.forEach(n => {
+    const p = screenPos(n.t, n.m);
+    const isSel = n.id === selectedId;
+    const isHov = n.id === hoverId;
+    const r = isSel ? 7 : (isHov ? 6 : 5);
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = n.role === 'mid' ? '#6fb6ff' : '#ffcc55';
+    ctx.fill();
+    ctx.lineWidth = isSel ? 2.5 : 1.5;
+    ctx.strokeStyle = isSel ? '#ffffff' : 'rgba(0,0,0,0.65)';
+    ctx.stroke();
+
+    if (n.role !== 'mid') {
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = 'rgba(255,204,85,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p.x, padT);
+      ctx.lineTo(p.x, padT + ph);
+      ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  /* ---------- 补正参考点 ---------- */
+  if (correction) {
+    const node = getNode(correction.nodeId);
+    if (node) {
+      const pNew = screenPos(node.t, node.m);
+      const pOld = screenPos(node.t, correction.originalMult);
+      if (Math.abs(pNew.y - pOld.y) > 0.5) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(160,160,160,0.65)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(pOld.x, pOld.y);
+        ctx.lineTo(pNew.x, pNew.y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(pOld.x, pOld.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(160,160,160,0.75)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(90,90,90,0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+/* =========================================================
+ *  测量：倒向积分模型
+ * ========================================================= */
+function updateMeasurement() {
+  const box = $('measureBox');
+  if (!measureMode) { box.hidden = true; return; }
+  box.hidden = false;
+
+  if (mouseCvX === null || !layout) {
+    $('mTime').textContent   = '—';
+    $('mDisp').textContent   = '—';
+    $('mBase').textContent   = '—';
+    $('mOffset').textContent = '—';
+    $('mEndV').textContent   = '—';
+    $('mOffset').style.color = '#e8eef6';
+    return;
+  }
+
+  const startTime = Math.round(getNum('startTime'));
+  const endTime   = Math.round(getNum('endTime'));
+  const D = endTime - startTime;
+
+  const tRaw = dataPos(mouseCvX, 0).t;
+  const t = Math.min(endTime, Math.max(startTime, tRaw));
+
+  const remaining = displacementBetween(t, endTime);
+  const pos = D - remaining;
+  const offset = pos - D;
+  const vEnd = endVelocity();
+
+  $('mTime').textContent   = Math.round(t) + ' ms';
+  $('mDisp').textContent   = pos.toFixed(2);
+  $('mBase').textContent   = D.toFixed(2);
+  $('mOffset').textContent = (offset >= 0 ? '+' : '') + offset.toFixed(2);
+  $('mEndV').textContent   = vEnd.toFixed(2);
+
+  const el = $('mOffset');
+  if (Math.abs(offset) < 0.005) el.style.color = '#ffd966';
+  else if (offset < 0)          el.style.color = '#6fd4a0';
+  else                          el.style.color = '#ff8080';
+}
+
+/* =========================================================
+ *  鼠标交互
+ * ========================================================= */
+function hitTest(px, py) {
+  if (!layout) return null;
+  const nodes = getAllNodes();
+  let best = null, bestD = 15 * 15;
+  for (const n of nodes) {
+    const p = screenPos(n.t, n.m);
+    const d = (p.x - px) ** 2 + (p.y - py) ** 2;
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best;
+}
+
+let warnTimer = null;
+function flashWarn(msg) {
+  const el = $('warnBox');
+  el.textContent = msg;
+  el.style.opacity = 1;
+  clearTimeout(warnTimer);
+  warnTimer = setTimeout(() => { el.style.opacity = 0; }, 1500);
+}
+
+cv.addEventListener('pointerdown', e => {
+  const r = cv.getBoundingClientRect();
+  const px = e.clientX - r.left;
+  const py = e.clientY - r.top;
+  const hit = hitTest(px, py);
+
+  if (hit) {
+    selectedId = hit.id;
+    dragId = hit.id;
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = 'grabbing';
+    refreshSidePanel();
+    draw();
+  } else {
+    selectedId = null;
+    refreshSidePanel();
+    draw();
+  }
+  e.preventDefault();
+});
+
+cv.addEventListener('pointermove', e => {
+  const r = cv.getBoundingClientRect();
+  const px = e.clientX - r.left;
+  const py = e.clientY - r.top;
+
+  if (measureMode) {
+    mouseCvX = px;
+    mouseCvY = py;
+    updateMeasurement();
+    requestUpdate({ side: false, compute: false });
+  }
+
+  if (!dragId) {
+    const hit = hitTest(px, py);
+    const id = hit ? hit.id : null;
+    if (id !== hoverId) {
+      hoverId = id;
+      cv.style.cursor = id ? 'grab' : 'default';
+      draw();
+    }
+    return;
+  }
+
+  if (!layout) return;
+
+  const node = getNode(dragId);
+  if (!node) return;
+
+  const d = dataPos(px, py);
+
+  let nm = Math.min(layout.yMax, Math.max(layout.yMin, d.m));
+  nm = Math.round(nm * 1000) / 1000;
+
+  if (node.role === 'mid') {
+    const tMinI = Math.round(getNum('startTime'));
+    const tMaxI = Math.round(getNum('endTime'));
+    let nt = Math.round(d.t);
+    nt = Math.min(tMaxI, Math.max(tMinI, nt));
+
+    const others = getAllNodes().filter(n => n.id !== node.id);
+    if (others.some(n => n.t === nt)) {
+      flashWarn('⚠ 时间与其它节点重叠，已撤销该次移动');
+    } else {
+      const ref = midNodes.find(n => n.id === dragId);
+      if (ref) ref.t = nt;
+    }
+  }
+
+  setNodeMult(node.id, nm);
+
+  syncSelectedInputs();
+  syncRowText(dragId);
+  requestUpdate({ side: false });
+
+  if (measureMode) updateMeasurement();
+});
+
+function endDrag() {
+  if (!dragId) return;
+  dragId = null;
+  cv.style.cursor = hoverId ? 'grab' : 'default';
+  requestUpdate({ side: true });
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+
+cv.addEventListener('pointerleave', () => {
+  if (!measureMode) return;
+  mouseCvX = null;
+  mouseCvY = null;
+  updateMeasurement();
+  requestUpdate({ side: false, compute: false });
+});
+
+/* =========================================================
+ *  右侧面板
+ * ========================================================= */
+function refreshSidePanel() {
+  const node = selectedId ? getNode(selectedId) : null;
+
+  if (!node) {
+    $('noSel').hidden = false;
+    $('selEdit').hidden = true;
+  } else {
+    $('noSel').hidden = true;
+    $('selEdit').hidden = false;
+    $('selTime').value = node.t;
+    $('selMult').value = node.m.toFixed(2);
+    $('selTime').disabled = (node.role !== 'mid');
+    $('selRole').textContent =
+      node.role === 'mid'   ? '中间节点：时间与倍率均可调' :
+      node.role === 'start' ? '起始节点：时间锁定，倍率可调' :
+                              '结束节点：时间锁定，倍率可调';
+  }
+
+  refreshNodeList();
+}
+
+function syncSelectedInputs() {
+  const node = selectedId ? getNode(selectedId) : null;
+  if (!node) return;
+  if (document.activeElement !== $('selTime')) $('selTime').value = node.t;
+  if (document.activeElement !== $('selMult')) $('selMult').value = node.m.toFixed(2);
+}
+
+function syncRowText(id) {
+  const row = rowEls.get(id);
+  const node = getNode(id);
+  if (!row || !node) return;
+  row.querySelector('.t').textContent = node.t;
+  row.querySelector('.m').textContent = '×' + node.m.toFixed(2);
+}
+
+function refreshNodeList() {
+  const box = $('nodeList');
+  box.textContent = '';
+  rowEls.clear();
+
+  const addRow = (id, role, t, m) => {
+    const div = document.createElement('div');
+    div.className = 'node-row' + (id === selectedId ? ' sel' : '');
+    const lockCls = role === 'mid' ? '' : ' lock';
+    div.innerHTML =
+      `<span class="tag ${role}">${role === 'mid' ? '●' : '◆'}</span>` +
+      `<span class="t${lockCls}">${t}</span>` +
+      `<span class="m">×${m.toFixed(2)}</span>`;
+
+    div.addEventListener('click', () => {
+      selectedId = id;
+      refreshSidePanel();
+      draw();
+    });
+
+    if (role === 'mid') {
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '✕';
+      del.title = '删除该节点';
+      del.addEventListener('click', ev => {
+        ev.stopPropagation();
+        if (correction && correction.nodeId === id) {
+          correction = null;
+          updateFixButtonState();
+        }
+        midNodes = midNodes.filter(n => n.id !== id);
+        if (selectedId === id) selectedId = null;
+        refreshSidePanel();
+        draw();
+        compute();
+      });
+      div.appendChild(del);
+    }
+
+    rowEls.set(id, div);
+    box.appendChild(div);
+  };
+
+  addRow('start', 'start', Math.round(getNum('startTime')), getNum('startMult', 1));
+  midNodes.slice().sort((a, b) => a.t - b.t).forEach(n => addRow(n.id, 'mid', n.t, n.m));
+  addRow('end', 'end', Math.round(getNum('endTime')), getNum('endMult', 1));
+}
+
+/* ---------- 选中节点编辑器的事件 ---------- */
+$('selTime').addEventListener('input', () => {
+  if (!selectedId || selectedId === 'start' || selectedId === 'end') return;
+  const ref = midNodes.find(n => n.id === selectedId);
+  if (!ref) return;
+
+  let t = Math.round(Number($('selTime').value));
+  if (!Number.isFinite(t)) return;
+
+  const s = Math.round(getNum('startTime'));
+  const e = Math.round(getNum('endTime'));
+  t = Math.min(e, Math.max(s, t));
+
+  if (getAllNodes().some(n => n.id !== selectedId && n.t === t)) {
+    flashWarn('⚠ 时间与其它节点重叠');
+    return;
+  }
+  ref.t = t;
+  syncRowText(selectedId);
+  requestUpdate({ side: false });
+});
+
+$('selMult').addEventListener('input', () => {
+  if (!selectedId) return;
+  const v = Number($('selMult').value);
+  if (!Number.isFinite(v)) return;
+  setNodeMult(selectedId, v);
+  syncRowText(selectedId);
+  requestUpdate({ side: false });
+});
+
+/* ---------- 添加节点 ---------- */
+$('addBtn').addEventListener('click', () => {
+  const s = Math.round(getNum('startTime'));
+  const e = Math.round(getNum('endTime'));
+  if (!(e > s)) { flashWarn('⚠ 请先设置有效的起止时间'); return; }
+
+  const times = getAllNodes().map(n => n.t).sort((a, b) => a - b);
+  let bestT = null, bestGap = -1;
+  for (let i = 0; i < times.length - 1; i++) {
+    const gap = times[i + 1] - times[i];
+    if (gap > bestGap) { bestGap = gap; bestT = times[i] + Math.floor(gap / 2); }
+  }
+  if (bestT === null || bestGap < 2) { flashWarn('⚠ 没有足够空间添加新节点'); return; }
+
+  const n = { id: nextId++, t: bestT, m: 1 };
+  midNodes.push(n);
+  selectedId = n.id;
+  refreshSidePanel();
+  draw();
+  compute();
+});
+
+/* =========================================================
+ *  timing 段落识别 / 导入
+ * ========================================================= */
+const TIMING_RE = /timing\s*\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*(?:,\s*([^,()]+?)\s*)?\)/gi;
+
+function setImportMsg(text, cls) {
+  const el = $('importMsg');
+  el.textContent = text;
+  el.className = cls || '';
+}
+
+/* 逐行扫描，只保留格式规范的 timing 语句 */
+function parseTimingText(text) {
+  const entries = [];
+  const errors = [];
+  const lines = String(text).split(/\r?\n/);
+
+  lines.forEach((line, i) => {
+    if (!/timing/i.test(line)) return;       // 不含关键字的行直接跳过
+    const lineNo = i + 1;
+
+    TIMING_RE.lastIndex = 0;
+    let m;
+    while ((m = TIMING_RE.exec(line)) !== null) {
+      const rawT = m[1].trim();
+      const rawB = m[2].trim();
+      const t = Number(rawT);
+      const b = Number(rawB);
+
+      if (!Number.isFinite(t)) {
+        errors.push(`第 ${lineNo} 行：时间戳「${rawT}」不是有效数字，已忽略。`);
+        continue;
+      }
+      if (!Number.isFinite(b)) {
+        errors.push(`第 ${lineNo} 行：BPM「${rawB}」不是有效数字，已忽略。`);
+        continue;
+      }
+      if (b === 0) {
+        errors.push(`第 ${lineNo} 行：BPM 为 0，不建议使用，已忽略。`);
+        continue;
+      }
+      entries.push({ time: Math.round(t), bpm: b, line: lineNo });
+    }
+  });
+
+  return { entries, errors };
+}
+
+/* 把识别结果落成节点 */
+function importTimingBlock() {
+  const raw = $('importArea').value;
+
+  if (!raw.trim()) {
+    setImportMsg('请先粘贴 timing 段落，再点击「识别并导入」。', 'err');
+    flashWarn('⚠ 请先粘贴 timing 段落');
+    return;
+  }
+
+  const baseBPM = getNum('baseBPM');
+  if (!(baseBPM > 0)) {
+    setImportMsg('基础 BPM 无效（必须为正数），无法把 BPM 换算为速度倍率。', 'err');
+    flashWarn('⚠ 基础 BPM 无效');
+    return;
+  }
+
+  const S = Math.round(getNum('startTime'));
+  const E = Math.round(getNum('endTime'));
+  if (!(E > S)) {
+    setImportMsg('当前起止时间无效（结束时间需大于起始时间），请先修正后再导入。', 'err');
+    flashWarn('⚠ 起止时间无效');
+    return;
+  }
+
+  const { entries, errors } = parseTimingText(raw);
+
+  if (!entries.length) {
+    const lines = ['未识别到有效的 timing 语句，请检查粘贴内容是否符合 timing(time, bpm[, beats]) 格式。'];
+    if (errors.length) lines.push(...limitLines(errors));
+    setImportMsg(lines.join('\n'), 'err');
+    flashWarn('⚠ 未识别到有效的 timing 语句');
+    return;
+  }
+
+  /* ---------- 排序 + 同刻去重 ---------- */
+  entries.sort((a, b) => (a.time - b.time) || (a.line - b.line));
+
+  const unique = [];
+  const notes = [];
+  for (const en of entries) {
+    const dup = unique.find(u => u.time === en.time);
+    if (dup) {
+      notes.push(`第 ${en.line} 行：时间戳 ${en.time} 与第 ${dup.line} 行重合，保留前者。`);
+      continue;
+    }
+    unique.push(en);
+  }
+
+  const tMin = unique[0].time;
+  const tMax = unique[unique.length - 1].time;
+  const newStart = Math.min(S, tMin);
+  const newEnd   = Math.max(E, tMax);
+
+  /* ---------- 撤销旧补正，避免与新节点冲突 ---------- */
+  if (correction) { undoFix(); updateFixButtonState(); }
+
+  /* ---------- 组装新节点表 ---------- */
+  const existingTimes = new Set(getAllNodes().map(n => n.t));
+  const merged = midNodes.map(n => ({ id: n.id, t: n.t, m: n.m }));
+
+  // 某时刻导入数据对应的速度倍率（取时间戳不晚于 t 的最后一条）
+  const speedAt = (t, fallback) => {
+    let best = null;
+    for (const en of unique) if (en.time <= t) best = en;
+    return best ? best.bpm / baseBPM : fallback;
+  };
+
+  // 旧端点被挤出范围 → 降级为普通节点
+  if (newStart < S) {
+    merged.push({ id: nextId++, t: S, m: speedAt(S, getNum('startMult', 1)) });
+  }
+  if (newEnd > E) {
+    merged.push({ id: nextId++, t: E, m: speedAt(E, getNum('endMult', 1)) });
+  }
+
+  // 逐条落点
+  const added = [];
+  let newStartMult = getNum('startMult', 1);
+  let newEndMult   = getNum('endMult', 1);
+
+  for (const en of unique) {
+    const m = en.bpm / baseBPM;
+
+    if (en.time === tMin && tMin < S) { newStartMult = m; continue; }  // 新的起点
+    if (en.time === tMax && tMax > E) { newEndMult   = m; continue; }  // 新的终点
+
+    if (en.time === S || en.time === E) {
+      notes.push(`第 ${en.line} 行：时间戳 ${en.time} 与现有端点重合，已保留原端点。`);
+      continue;
+    }
+    if (existingTimes.has(en.time)) {
+      notes.push(`第 ${en.line} 行：时间戳 ${en.time} 与已有节点重合，已忽略该行。`);
+      continue;
+    }
+
+    existingTimes.add(en.time);
+    merged.push({ id: nextId++, t: en.time, m });
+    added.push(en);
+  }
+
+  /* ---------- 写回模型 ---------- */
+  midNodes = merged;
+  $('startTime').value = newStart;
+  $('startMult').value = newStartMult;
+  $('endTime').value   = newEnd;
+  $('endMult').value   = newEndMult;
+
+  syncMidToRange();
+  refreshSidePanel();
+  draw();
+  compute();
+  updateMeasurement();
+
+  /* ---------- 结果反馈 ---------- */
+  const fb = [`✓ 识别到 ${entries.length} 条有效 timing 语句，新增 ${added.length} 个节点。`];
+  if (newStart < S) fb.push(`起始时间前移：${S} → ${newStart}（原起点已转为节点）。`);
+  if (newEnd > E)   fb.push(`结束时间后移：${E} → ${newEnd}（原终点已转为节点）。`);
+  if (notes.length)  fb.push(...limitLines(notes));
+  if (errors.length) fb.push(...limitLines(errors));
+
+  const hasIssue = notes.length > 0 || errors.length > 0;
+  setImportMsg(fb.join('\n'), hasIssue ? 'warn' : 'ok');
+  flashWarn(hasIssue ? '⚠ 导入完成，但存在部分问题' : '✓ timing 段落导入完成');
+}
+
+/* =========================================================
+ *  核心输出
+ * ========================================================= */
+function compute() {
+  const out = $('output');
+  const info = $('info');
+
+  const startTime = Math.round(getNum('startTime'));
+  const endTime   = Math.round(getNum('endTime'));
+  const baseBPM   = getNum('baseBPM');
+  let beats       = getNum('beats');
+  if (!(beats > 0)) beats = 4;
+
+  if (!(endTime > startTime)) {
+    out.value = '';
+    info.innerHTML = '<span class="warn-text">⚠ 结束时间必须大于起始时间</span>';
+    return;
+  }
+  if (!(baseBPM > 0)) {
+    out.value = '';
+    info.innerHTML = '<span class="warn-text">⚠ 基础 BPM 必须为正数</span>';
+    return;
+  }
+
+  if (correction && !getNode(correction.nodeId)) {
+    correction = null;
+    updateFixButtonState();
+  }
+
+  const seq = buildSequence();
+
+  out.value = seq
+    .map(n => `timing(${n.t},${(n.m * baseBPM).toFixed(2)},${beats.toFixed(2)});`)
+    .join('\n');
+
+  const vEnd = endVelocity();
+  const note = correction
+    ? `已补正（节点原倍率 ${correction.originalMult.toFixed(4)}）`
+    : '未补正';
+
+  info.innerHTML =
+    `参与计算节点：${seq.length} 个\n` +
+    `末端速度：${vEnd.toFixed(2)}　补正：${note}`;
+}
+
+/* =========================================================
+ *  全局输入绑定
+ * ========================================================= */
+$('yScale').addEventListener('change', () => {
+  requestUpdate({ side: false, compute: false });
+});
+
+['startTime', 'endTime', 'baseBPM', 'beats']
+  .forEach(id => {
+    $(id).addEventListener('input', () => {
+      requestUpdate({ side: (id === 'startTime' || id === 'endTime') });
+    });
+    $(id).addEventListener('change', () => {
+      requestUpdate({ side: (id === 'startTime' || id === 'endTime') });
+    });
+  });
+
+/* 位移补正：切换按钮 */
+$('btnFix').addEventListener('click', () => {
+  if (correction) undoFix();
+  else            applyFix();
+  updateFixButtonState();
+  requestUpdate({ side: true });
+});
+
+/* 测量模式切换 */
+$('btnMeasure').addEventListener('click', () => {
+  measureMode = !measureMode;
+  $('btnMeasure').classList.toggle('active', measureMode);
+
+  if (!measureMode) {
+    mouseCvX = null;
+    mouseCvY = null;
+  }
+  updateMeasurement();
+  requestUpdate({ side: false, compute: false });
+});
+
+/* ---------- 复制 ---------- */
+$('copyBtn').addEventListener('click', () => {
+  const out = $('output');
+  const done = () => {
+    $('copyMsg').textContent = '已复制 ✓';
+    setTimeout(() => { $('copyMsg').textContent = ''; }, 1200);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(out.value).then(done, () => {
+      out.select(); document.execCommand('copy'); done();
+    });
+  } else {
+    out.select(); document.execCommand('copy'); done();
+  }
+});
+
+/* ---------- 信息弹窗 ---------- */
+function openModal() {
+  $('modalBackdrop').classList.add('show');
+}
+function closeModal() {
+  $('modalBackdrop').classList.remove('show');
+}
+
+$('btnInfo').addEventListener('click', openModal);
+$('btnCloseModal').addEventListener('click', closeModal);
+
+/* 点击遮罩空白处关闭 */
+$('modalBackdrop').addEventListener('click', e => {
+  if (e.target === $('modalBackdrop')) closeModal();
+});
+
+/* Esc 键关闭 */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ---------- timing 段落导入面板 ---------- */
+$('btnImport').addEventListener('click', () => {
+  const panel = $('importPanel');
+  const willShow = panel.hidden;
+  panel.hidden = !willShow;
+  $('btnImport').classList.toggle('active', willShow);
+  if (willShow) {
+    setImportMsg('');
+    $('importArea').focus();
+  }
+});
+
+$('importRun').addEventListener('click', importTimingBlock);
+
+$('importClear').addEventListener('click', () => {
+  $('importArea').value = '';
+  setImportMsg('');
+  $('importArea').focus();
+});
+
+$('importArea').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    importTimingBlock();
+  }
+});
+
+/* =========================================================
+ *  初始化
+ * ========================================================= */
+(function init() {
+  midNodes.push({ id: nextId++, t: 300, m: 1 });
+  midNodes.push({ id: nextId++, t: 700, m: 1 });
+
+  refreshSidePanel();
+  resize();
+  compute();
+  updateMeasurement();
+  updateFixButtonState();
+})();
+</script>
+</body>
+</html>

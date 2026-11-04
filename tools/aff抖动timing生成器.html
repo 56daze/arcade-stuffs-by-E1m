@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>aff抖动timing生成器</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #121217;
+            color: #e2e2e8;
+            font-family: system-ui, "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 24px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: #16161c;
+            border: 1px solid #26262e;
+            border-radius: 6px;
+            padding: 28px 32px 34px;
+        }
+
+        h1 {
+            color: #e8eef6;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .sub {
+            color: #767f8e;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+            border-left: 2px solid #4d7fb8;
+            padding-left: 10px;
+            letter-spacing: 0.2px;
+        }
+
+        .sub .powered {
+            color: #8fb8dd;
+            font-weight: 500;
+        }
+
+        .row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+
+        label {
+            width: 110px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #9aa3b2;
+            flex-shrink: 0;
+        }
+
+        input,
+        select {
+            background: #25252e;
+            border: 1px solid #3a3a46;
+            color: #e2e2e8;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            width: 120px;
+            flex-shrink: 0;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #5a8fd8;
+        }
+
+        .btn {
+            background: #2b4a6e;
+            border: 1px solid #4d7fb8;
+            color: #d6e8ff;
+            padding: 9px 24px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            letter-spacing: 0.3px;
+            margin-top: 10px;
+            transition: background-color 0.12s;
+        }
+
+        .btn:hover {
+            background: #35597f;
+        }
+
+        .btn:active {
+            background: #243f5e;
+        }
+
+        .output-area {
+            background: #0f0f14;
+            padding: 14px 16px;
+            border-radius: 4px;
+            margin-top: 18px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #9fe8a0;
+            border: 1px solid #3a3a46;
+        }
+
+        .output-area::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .output-area::-webkit-scrollbar-track {
+            background: #0f0f14;
+        }
+        .output-area::-webkit-scrollbar-thumb {
+            background: #3a3a46;
+            border-radius: 4px;
+        }
+        .output-area::-webkit-scrollbar-thumb:hover {
+            background: #5a8fd8;
+        }
+
+        .status {
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.55;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .idle {
+            background: #1e1e26;
+            border: 1px solid #26262e;
+            color: #9aa3b2;
+        }
+
+        .safe {
+            background: rgba(159, 232, 160, 0.10);
+            border: 1px solid rgba(159, 232, 160, 0.40);
+            color: #9fe8a0;
+        }
+
+        .danger {
+            background: rgba(255, 107, 107, 0.10);
+            border: 1px solid rgba(255, 107, 107, 0.45);
+            color: #ff6b6b;
+        }
+
+        .copy-btn {
+            background: #1e3f2a;
+            border: 1px solid #2d6a42;
+            color: #9fe8a0;
+            padding: 6px 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            font-family: inherit;
+            float: right;
+            margin-top: 10px;
+            transition: background-color 0.12s;
+        }
+
+        .copy-btn:hover {
+            background: #265233;
+        }
+
+        .copy-btn:active {
+            background: #1a3625;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>aff抖动timing生成器</h1>
+        <div class="sub">
+            <span class="powered">Powered by DeepSeek</span>
+            · 速度 = 均值倍率 ± 振幅倍率 × 缓动曲线 · 步长 30ms · 首项后移 1ms + 首尾基准 BPM
+        </div>
+
+        <div class="row"><label>起始时间 (ms)</label><input id="start" type="number" value="39146"></div>
+        <div class="row"><label>结束时间 (ms)</label><input id="end" type="number" value="39512"></div>
+        <div class="row"><label>基准 BPM</label><input id="base" type="number" value="164" step="1"></div>
+        <div class="row"><label>均值倍率</label><input id="mean" type="number" value="0.75" step="0.05"></div>
+        <div class="row"><label>初始振幅倍率</label><input id="initAmp" type="number" value="5.0" step="0.1"></div>
+        <div class="row"><label>结束振幅倍率</label><input id="endAmp" type="number" value="0.0" step="0.1"></div>
+        <div class="row"><label>缓动曲线</label>
+            <select id="easing">
+                <option value="linear">Linear</option>
+                <option value="inSine">InSine</option>
+                <option value="outSine" selected>OutSine</option>
+                <option value="inOutSine">InOutSine</option>
+                <option value="inQuad">InQuad</option>
+                <option value="outQuad">OutQuad</option>
+                <option value="inExpo">InExpo</option>
+                <option value="outExpo">OutExpo</option>
+                <option value="inBack">InBack</option>
+                <option value="outBack">OutBack</option>
+            </select>
+        </div>
+
+        <button class="btn" onclick="generate()">⚡ 生成 Timing 序列</button>
+        <div id="status" class="status idle">✨ 等待生成...</div>
+
+        <div class="output-area" id="output">// 点击生成，这里会输出整洁的 timing 语句</div>
+        <button class="copy-btn" onclick="copyText()">📋 复制全部</button>
+    </div>
+
+    <script>
+        // ========== 缓动函数库（精简为10个） ==========
+        function linear(t) { return t; }
+
+        function inSine(t) { return 1 - Math.cos((t * Math.PI) / 2); }
+        function outSine(t) { return Math.sin((t * Math.PI) / 2); }
+        function inOutSine(t) { return (1 - Math.cos(Math.PI * t)) / 2; }
+
+        function inQuad(t) { return t * t; }
+        function outQuad(t) { return 1 - (1 - t) * (1 - t); }
+
+        function inExpo(t) { return t === 0 ? 0 : Math.pow(2, 10 * (t - 1)); }
+        function outExpo(t) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+
+        function inBack(t) {
+            const c = 1.70158;
+            return t * t * ((c + 1) * t - c);
+        }
+        function outBack(t) {
+            const c = 1.70158;
+            return 1 + (--t) * t * ((c + 1) * t + c);
+        }
+
+        // ========== 生成器 ==========
+        function generate() {
+            const start = parseFloat(document.getElementById('start').value);
+            const end = parseFloat(document.getElementById('end').value);
+            const base = parseFloat(document.getElementById('base').value);
+            const meanMul = parseFloat(document.getElementById('mean').value);
+            const initialAmp = parseFloat(document.getElementById('initAmp').value);
+            const endAmp = parseFloat(document.getElementById('endAmp').value);
+            const easingType = document.getElementById('easing').value;
+
+            // 选择缓动函数
+            let easingFunc;
+            switch (easingType) {
+                case 'linear':   easingFunc = linear; break;
+                case 'inSine':   easingFunc = inSine; break;
+                case 'outSine':  easingFunc = outSine; break;
+                case 'inOutSine': easingFunc = inOutSine; break;
+                case 'inQuad':   easingFunc = inQuad; break;
+                case 'outQuad':  easingFunc = outQuad; break;
+                case 'inExpo':   easingFunc = inExpo; break;
+                case 'outExpo':  easingFunc = outExpo; break;
+                case 'inBack':   easingFunc = inBack; break;
+                case 'outBack':  easingFunc = outBack; break;
+                default: easingFunc = linear;
+            }
+
+            const step = 30;
+            const totalDuration = end - start;
+            if (totalDuration <= 0) {
+                alert('结束时间必须大于起始时间');
+                return;
+            }
+
+            let lines = [];
+            let toggle = true; // true=正, false=负
+            let maxRetreat = 0;
+            let firstPosOffset = 0;
+
+            // ---- 1. 在 start 处插入基准 BPM 项 ----
+            lines.push(`timing(${Math.round(start)}, ${base.toFixed(2)}, 4);`);
+
+            // ---- 2. 循环：从 start+1 到 end（不含 end），步长 30ms ----
+            let t = start + 1;
+            let idx = 0;
+            while (t < end) {
+                let progress = (t - start) / totalDuration;
+                if (progress > 1) progress = 1;
+
+                // 振幅从 initialAmp 到 endAmp，由缓动曲线控制
+                let ampCurrent = initialAmp + (endAmp - initialAmp) * easingFunc(progress);
+                // 速度 = 均值 ± 振幅
+                let v = meanMul + (toggle ? ampCurrent : -ampCurrent);
+                let bpm = v * base;
+
+                // 安全监测：记录最大回缩位移（负向时）
+                if (v < 0) {
+                    let retreat = Math.abs(v) * step;
+                    if (retreat > maxRetreat) maxRetreat = retreat;
+                }
+                // 记录第一个正向脉冲的位移（安全垫）
+                if (idx === 0) {
+                    firstPosOffset = v * step;
+                }
+
+                lines.push(`timing(${Math.round(t)}, ${bpm.toFixed(2)}, 4);`);
+
+                t += step;
+                toggle = !toggle;
+                idx++;
+            }
+
+            // ---- 3. 末项：在 end 处使用基准 BPM ----
+            lines.push(`timing(${Math.round(end)}, ${base.toFixed(2)}, 4);`);
+
+            // ---- 显示 ----
+            document.getElementById('output').textContent = lines.join('\n');
+
+            // ---- 安全状态 ----
+            let safetyMargin = firstPosOffset - maxRetreat;
+            let statusDiv = document.getElementById('status');
+            if (safetyMargin > 0) {
+                statusDiv.className = 'status safe';
+                statusDiv.innerHTML =
+                    `✅ 安全！首个正向脉冲建立了 ${firstPosOffset.toFixed(1)} 单位的缓冲垫，最大单次回缩仅 ${maxRetreat.toFixed(1)} 单位，余量 ${safetyMargin.toFixed(1)} (尾部绝对安全)`;
+            } else {
+                statusDiv.className = 'status danger';
+                statusDiv.innerHTML =
+                    `⚠️ 警告！缓冲垫不足 (${firstPosOffset.toFixed(1)} ≤ ${maxRetreat.toFixed(1)})，可能倒置！请增大初始振幅倍率或均值倍率。`;
+            }
+        }
+
+        // ========== 复制 ==========
+        function copyText() {
+            const text = document.getElementById('output').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ 已复制到剪贴板，直接粘贴进 .aff 文件吧！');
+            }).catch(() => {
+                const area = document.getElementById('output');
+                const range = document.createRange();
+                range.selectNode(area);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand('copy');
+                alert('✅ 已复制到剪贴板');
+            });
+        }
+    </script>
+</body>
+</html>
